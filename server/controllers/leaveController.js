@@ -160,7 +160,7 @@ export const approveLeave = async (req, res) => {
         const db = getDb();
         const userId = req.user.id;
         const { leaveRequestId } = req.params;
-        const { approvalComments } = req.validatedData;
+        const approvalComments = req.validatedData?.approvalComments || req.body?.approvalComments;
 
         if (req.user.role !== ROLES.ADMIN) {
             return res.status(403).json({ error: ERROR_MESSAGES.FORBIDDEN });
@@ -223,7 +223,7 @@ export const rejectLeave = async (req, res) => {
         const db = getDb();
         const userId = req.user.id;
         const { leaveRequestId } = req.params;
-        const { approvalComments } = req.validatedData;
+        const approvalComments = req.validatedData?.approvalComments || req.body?.approvalComments;
 
         if (req.user.role !== ROLES.ADMIN) {
             return res.status(403).json({ error: ERROR_MESSAGES.FORBIDDEN });

@@ -30,3 +30,19 @@ export const changePasswordSchema = Joi.object({
             'string.pattern.base': 'Password must be at least 8 characters with uppercase, lowercase, number and special character',
         }),
 });
+
+export const forgotPasswordSchema = Joi.object({
+    email: Joi.string().email().required().messages({
+        'string.email': 'Invalid email format',
+    }),
+});
+
+export const resetPasswordSchema = Joi.object({
+    token: Joi.string().required(),
+    newPassword: Joi.string()
+        .pattern(PASSWORD_REGEX)
+        .required()
+        .messages({
+            'string.pattern.base': 'Password must be at least 8 characters with uppercase, lowercase, number and special character',
+        }),
+});

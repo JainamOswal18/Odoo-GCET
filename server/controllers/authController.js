@@ -1,6 +1,7 @@
 import { getDb } from '../config/database.js';
 import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
+import nodemailer from 'nodemailer';
 import { ENV } from '../config/environment.js';
 import { ROLES, ERROR_MESSAGES, PASSWORD_REGEX } from '../config/constants.js';
 import { generateEmployeeId } from '../utils/idGenerator.js';
@@ -220,6 +221,118 @@ export const logout = async (req, res) => {
         );
 
         res.status(200).json({ message: 'Logged out successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const forgotPassword = async (req, res) => {
+    try {
+        const db = getDb();
+        const { email } = req.validatedData || req.body;
+
+        const user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
+
+        if (!user) {
+            // Return success even if user not found (security best practice)
+            return res.status(200).json({
+                message: 'If the email exists, a password reset link has been sent.'
+            });
+        }
+
+        // Generate reset token (valid for 1 hour)
+        const resetToken = jwt.sign(
+            { id: user.id, email: user.email },
+            ENV.JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+
+        // In production, you'd save this token to database
+        // For now, we'll just send it via email
+
+        const resetLink = `${ENV.FRONTEND_URL}/reset-password?token=${resetToken}`;
+
+        // Send password reset email
+        const transporter = nodemailer.createTransport({
+            service: ENV.EMAIL_SERVICE,
+            auth: {
+                user: ENV.EMAIL_USER,
+                pass: ENV.EMAIL_PASSWORD,
+            },
+        });
+
+        await transporter.sendMail({
+            from: ENV.EMAIL_USER,
+            to: email,
+            subject: 'Password Reset Request - Dayflow HRMS',
+            html: `
+                <h2>Password Reset Request</h2>
+                <p>Hi,</p>
+                <p>You requested to reset your password. Click the link below to reset it:</p>
+                <a href="${resetLink}">Reset Password</a>
+                <p>This link will expire in 1 hour.</p>
+                <p>If you didn't request this, please ignore this email.</p>
+                <br>
+                <p>Thanks,</p>
+                <p>Dayflow HRMS Team</p>
+            `,
+        });
+
+        // Log audit
+        const now = new Date().toISOString();
+        await db.run(
+            `INSERT INTO auditLogs (id, userId, action, entityType, entityId, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+            [uuidv4(), user.id, 'PASSWORD_RESET_REQUESTED', 'User', user.id, now]
+        );
+
+        res.status(200).json({
+            message: 'If the email exists, a password reset link has been sent.'
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const resetPassword = async (req, res) => {
+    try {
+        const db = getDb();
+        const { token, newPassword } = req.validatedData || req.body;
+
+        // Verify token
+        let decoded;
+        try {
+            decoded = jwt.verify(token, ENV.JWT_SECRET);
+        } catch (err) {
+            return res.status(400).json({ error: 'Invalid or expired reset token' });
+        }
+
+        const user = await db.get('SELECT * FROM users WHERE id = ?', [decoded.id]);
+
+        if (!user) {
+            return res.status(404).json({ error: ERROR_MESSAGES.USER_NOT_FOUND });
+        }
+
+        if (!PASSWORD_REGEX.test(newPassword)) {
+            return res.status(400).json({ error: ERROR_MESSAGES.INVALID_PASSWORD });
+        }
+
+        const hashedPassword = await hashPassword(newPassword);
+        const now = new Date().toISOString();
+
+        await db.run(
+            'UPDATE users SET password = ?, updatedAt = ? WHERE id = ?',
+            [hashedPassword, now, decoded.id]
+        );
+
+        // Log audit
+        await db.run(
+            `INSERT INTO auditLogs (id, userId, action, entityType, entityId, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+            [uuidv4(), decoded.id, 'PASSWORD_RESET', 'User', decoded.id, now]
+        );
+
+        res.status(200).json({ message: 'Password reset successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

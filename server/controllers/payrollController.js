@@ -75,7 +75,8 @@ export const createPayroll = async (req, res) => {
         const db = getDb();
         const userId = req.user.id;
         const { employeeId } = req.params;
-        const { baseSalary, allowances = 0, deductions = 0, bonus = 0, month, year, remarks } = req.validatedData;
+        const data = req.validatedData || req.body;
+        const { baseSalary, allowances = 0, deductions = 0, bonus = 0, month, year, remarks } = data;
 
         if (req.user.role !== ROLES.ADMIN) {
             return res.status(403).json({ error: ERROR_MESSAGES.FORBIDDEN });
