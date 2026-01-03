@@ -10,6 +10,8 @@ export const updateEmployeeSchema = Joi.object({
     firstName: Joi.string().optional(),
     lastName: Joi.string().optional(),
     phone: Joi.string().optional(),
+    dateOfBirth: Joi.string().optional(),
+    gender: Joi.string().optional(),
     address: Joi.string().optional(),
     city: Joi.string().optional(),
     state: Joi.string().optional(),
@@ -18,4 +20,9 @@ export const updateEmployeeSchema = Joi.object({
     designation: Joi.string().optional(),
     department: Joi.string().optional(),
     salary: Joi.number().positive().optional(),
+    bankAccountNumber: Joi.string().optional(),
+    bankName: Joi.string().optional(),
+    bankIfscCode: Joi.string().optional(),
+    panNumber: Joi.string().optional(),
+    uanNumber: Joi.string().optional(),
 });

@@ -239,3 +239,167 @@ export const markPayrollAsPaid = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+export const getSalaryComponents = async (req, res) => {
+    try {
+        const db = getDb();
+        const userId = req.user.id;
+        const { employeeId } = req.params;
+
+        // Get employee
+        const employee = await db.get('SELECT * FROM employees WHERE id = ?', [employeeId]);
+
+        if (!employee) {
+            return res.status(404).json({ error: ERROR_MESSAGES.EMPLOYEE_NOT_FOUND });
+        }
+
+        // Check authorization
+        if (req.user.role === ROLES.EMPLOYEE && employee.userId !== userId) {
+            return res.status(403).json({ error: ERROR_MESSAGES.FORBIDDEN });
+        }
+
+        const components = await db.all(
+            'SELECT * FROM salaryComponents WHERE employeeId = ? AND isActive = 1 ORDER BY componentType, componentName',
+            [employeeId]
+        );
+
+        // Calculate component values based on base salary
+        const baseSalary = employee.salary || 0;
+        const calculatedComponents = components.map(comp => ({
+            ...comp,
+            calculatedAmount: comp.calculationType === 'Percentage'
+                ? (baseSalary * comp.value) / 100
+                : comp.value
+        }));
+
+        res.status(200).json({
+            components: calculatedComponents,
+            baseSalary,
+            employeeId
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const createSalaryComponent = async (req, res) => {
+    try {
+        const db = getDb();
+        const userId = req.user.id;
+        const { employeeId } = req.params;
+        const { componentName, componentType, calculationType, value, description } = req.body;
+
+        if (req.user.role !== ROLES.ADMIN) {
+            return res.status(403).json({ error: ERROR_MESSAGES.FORBIDDEN });
+        }
+
+        // Get employee
+        const employee = await db.get('SELECT * FROM employees WHERE id = ?', [employeeId]);
+
+        if (!employee) {
+            return res.status(404).json({ error: ERROR_MESSAGES.EMPLOYEE_NOT_FOUND });
+        }
+
+        const now = new Date().toISOString();
+        const componentId = uuidv4();
+
+        await db.run(
+            `INSERT INTO salaryComponents (id, employeeId, componentName, componentType, calculationType, value, description, isActive, createdAt, updatedAt)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [componentId, employeeId, componentName, componentType, calculationType, value, description || '', 1, now, now]
+        );
+
+        // Log audit
+        await db.run(
+            `INSERT INTO auditLogs (id, userId, action, entityType, entityId, createdAt)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [uuidv4(), userId, 'SALARY_COMPONENT_CREATED', 'SalaryComponent', componentId, now]
+        );
+
+        res.status(201).json({ message: 'Salary component created successfully', componentId });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const updateSalaryComponent = async (req, res) => {
+    try {
+        const db = getDb();
+        const userId = req.user.id;
+        const { employeeId, componentId } = req.params;
+        const { componentName, componentType, calculationType, value, description } = req.body;
+
+        if (req.user.role !== ROLES.ADMIN) {
+            return res.status(403).json({ error: ERROR_MESSAGES.FORBIDDEN });
+        }
+
+        const component = await db.get(
+            'SELECT * FROM salaryComponents WHERE id = ? AND employeeId = ?',
+            [componentId, employeeId]
+        );
+
+        if (!component) {
+            return res.status(404).json({ error: 'Salary component not found' });
+        }
+
+        const now = new Date().toISOString();
+
+        await db.run(
+            `UPDATE salaryComponents 
+             SET componentName = ?, componentType = ?, calculationType = ?, value = ?, description = ?, updatedAt = ?
+             WHERE id = ?`,
+            [componentName, componentType, calculationType, value, description || '', now, componentId]
+        );
+
+        // Log audit
+        await db.run(
+            `INSERT INTO auditLogs (id, userId, action, entityType, entityId, createdAt)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [uuidv4(), userId, 'SALARY_COMPONENT_UPDATED', 'SalaryComponent', componentId, now]
+        );
+
+        res.status(200).json({ message: 'Salary component updated successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const deleteSalaryComponent = async (req, res) => {
+    try {
+        const db = getDb();
+        const userId = req.user.id;
+        const { employeeId, componentId } = req.params;
+
+        if (req.user.role !== ROLES.ADMIN) {
+            return res.status(403).json({ error: ERROR_MESSAGES.FORBIDDEN });
+        }
+
+        const component = await db.get(
+            'SELECT * FROM salaryComponents WHERE id = ? AND employeeId = ?',
+            [componentId, employeeId]
+        );
+
+        if (!component) {
+            return res.status(404).json({ error: 'Salary component not found' });
+        }
+
+        const now = new Date().toISOString();
+
+        // Soft delete
+        await db.run(
+            'UPDATE salaryComponents SET isActive = 0, updatedAt = ? WHERE id = ?',
+            [now, componentId]
+        );
+
+        // Log audit
+        await db.run(
+            `INSERT INTO auditLogs (id, userId, action, entityType, entityId, createdAt)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [uuidv4(), userId, 'SALARY_COMPONENT_DELETED', 'SalaryComponent', componentId, now]
+        );
+
+        res.status(200).json({ message: 'Salary component deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};

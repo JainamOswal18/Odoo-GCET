@@ -115,7 +115,7 @@ export const updateEmployeeProfile = async (req, res) => {
         const db = getDb();
         const userId = req.user.id;
         const { employeeId } = req.params;
-        const { firstName, lastName, phone, address, city, state, zipCode, country, designation, department, salary } = req.validatedData;
+        const { firstName, lastName, phone, dateOfBirth, gender, address, city, state, zipCode, country, designation, department, salary, bankAccountNumber, bankName, bankIfscCode, panNumber, uanNumber } = req.validatedData;
 
         // Get employee
         const employee = await db.get('SELECT * FROM employees WHERE id = ?', [employeeId]);
@@ -130,7 +130,7 @@ export const updateEmployeeProfile = async (req, res) => {
         }
 
         // Employees can only edit certain fields
-        const editableByEmployee = ['phone', 'address', 'city', 'state', 'zipCode', 'country'];
+        const editableByEmployee = ['phone', 'dateOfBirth', 'gender', 'address', 'city', 'state', 'zipCode', 'country', 'bankAccountNumber', 'bankName', 'bankIfscCode', 'panNumber', 'uanNumber'];
         let updateData = {};
 
         if (req.user.role === ROLES.ADMIN) {
@@ -138,6 +138,8 @@ export const updateEmployeeProfile = async (req, res) => {
                 firstName: firstName || employee.firstName,
                 lastName: lastName || employee.lastName,
                 phone: phone || employee.phone,
+                dateOfBirth: dateOfBirth || employee.dateOfBirth,
+                gender: gender || employee.gender,
                 address: address || employee.address,
                 city: city || employee.city,
                 state: state || employee.state,
@@ -146,6 +148,11 @@ export const updateEmployeeProfile = async (req, res) => {
                 designation: designation || employee.designation,
                 department: department || employee.department,
                 salary: salary !== undefined ? salary : employee.salary,
+                bankAccountNumber: bankAccountNumber || employee.bankAccountNumber,
+                bankName: bankName || employee.bankName,
+                bankIfscCode: bankIfscCode || employee.bankIfscCode,
+                panNumber: panNumber || employee.panNumber,
+                uanNumber: uanNumber || employee.uanNumber,
             };
         } else {
             editableByEmployee.forEach((field) => {

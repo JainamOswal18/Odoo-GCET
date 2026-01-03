@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Bell, Search, Settings, LogOut, User, ChevronDown } from 'lucide-react';
+import { Bell, Search, Settings, LogOut, User, ChevronDown, Menu } from 'lucide-react';
 import './Header.css';
 
 interface HeaderProps {
@@ -18,7 +18,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
     useEffect(() => {
         // Load pending leave count for admin
-        if (user?.role === 'admin') {
+        if (user?.role === 'Admin') {
             loadPendingNotifications();
         }
     }, [user, location]);
@@ -54,10 +54,10 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
         if (path.includes('/admin/leave-approvals')) return 'Leave Approvals';
         if (path.includes('/admin/attendance')) return 'Attendance Overview';
         if (path.includes('/admin/payroll')) return 'Payroll Management';
-        if (path.includes('/dashboard')) return user?.role === 'admin' ? 'Admin Dashboard' : 'Employee Dashboard';
+        if (path.includes('/dashboard')) return user?.role === 'Admin' ? 'Admin Dashboard' : 'Employee Dashboard';
         if (path.includes('/profile')) return 'My Profile';
         if (path.includes('/attendance')) return 'Attendance';
-        if (path.includes('/leave')) return 'Leave Management';
+        if (path.includes('/leave')) return 'Time Off';
         if (path.includes('/salary')) return 'Salary Details';
         return 'Dashboard';
     };
@@ -66,12 +66,12 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
         <header className="header">
             <div className="header-left">
                 <button className="menu-toggle" onClick={onMenuClick} aria-label="Toggle menu">
-                    ☰
+                    <Menu size={24} />
                 </button>
                 <div className="header-title">
                     <h1 className="page-title">{getPageTitle()}</h1>
                     <p className="page-subtitle">
-                        {user?.role === 'admin' ? 'Administrator' : user?.department || 'Employee'}
+                        {user?.role === 'Admin' ? 'Administrator' : user?.department || 'Employee'}
                     </p>
                 </div>
             </div>
@@ -87,7 +87,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                         aria-label="Notifications"
                         onClick={() => {
                             setShowNotifications(!showNotifications);
-                            if (user?.role === 'admin') {
+                            if (user?.role === 'Admin') {
                                 navigate('/admin/leave-approvals');
                             }
                         }}
@@ -109,7 +109,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                         </div>
                         <div className="user-info-header">
                             <span className="user-name-header">{user?.name}</span>
-                            <span className="user-role-header">{user?.role === 'admin' ? 'Admin' : 'Employee'}</span>
+                            <span className="user-role-header">{user?.role === 'Admin' ? 'Admin' : 'Employee'}</span>
                         </div>
                         <ChevronDown size={16} className="dropdown-arrow-icon" />
                     </button>

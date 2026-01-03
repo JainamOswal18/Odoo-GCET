@@ -72,6 +72,11 @@ const createTables = async () => {
       reportingTo TEXT,
       employmentType TEXT NOT NULL CHECK(employmentType IN ('Full-time', 'Part-time', 'Contract')),
       salary REAL,
+      bankAccountNumber TEXT,
+      bankName TEXT,
+      bankIfscCode TEXT,
+      panNumber TEXT,
+      uanNumber TEXT,
       createdAt TEXT NOT NULL,
       updatedAt TEXT NOT NULL,
       FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
@@ -127,6 +132,30 @@ const createTables = async () => {
       FOREIGN KEY(employeeId) REFERENCES employees(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS salaryComponents (
+      id TEXT PRIMARY KEY,
+      employeeId TEXT NOT NULL,
+      componentName TEXT NOT NULL,
+      componentType TEXT NOT NULL CHECK(componentType IN ('Earning', 'Deduction')),
+      calculationType TEXT NOT NULL CHECK(calculationType IN ('Fixed', 'Percentage')),
+      value REAL NOT NULL,
+      description TEXT,
+      isActive INTEGER DEFAULT 1,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL,
+      FOREIGN KEY(employeeId) REFERENCES employees(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS payrollDetails (
+      id TEXT PRIMARY KEY,
+      payrollId TEXT NOT NULL,
+      componentName TEXT NOT NULL,
+      componentType TEXT NOT NULL,
+      calculatedAmount REAL NOT NULL,
+      createdAt TEXT NOT NULL,
+      FOREIGN KEY(payrollId) REFERENCES payroll(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS leaveBalances (
       id TEXT PRIMARY KEY,
       employeeId TEXT NOT NULL,
@@ -156,6 +185,8 @@ const createTables = async () => {
     CREATE INDEX IF NOT EXISTS idx_attendance_employeeId_date ON attendance(employeeId, date);
     CREATE INDEX IF NOT EXISTS idx_leaveRequests_employeeId ON leaveRequests(employeeId);
     CREATE INDEX IF NOT EXISTS idx_payroll_employeeId ON payroll(employeeId);
+    CREATE INDEX IF NOT EXISTS idx_salaryComponents_employeeId ON salaryComponents(employeeId);
+    CREATE INDEX IF NOT EXISTS idx_payrollDetails_payrollId ON payrollDetails(payrollId);
     CREATE INDEX IF NOT EXISTS idx_leaveBalances_employeeId ON leaveBalances(employeeId);
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
   `;

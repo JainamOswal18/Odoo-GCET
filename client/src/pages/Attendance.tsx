@@ -4,15 +4,15 @@ import { useToast } from '../context/ToastContext';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
+import api from '../services/api';
 import './Attendance.css';
 
 interface AttendanceRecord {
     id: string;
     date: string;
-    checkIn: string;
-    checkOut: string;
-    status: 'present' | 'absent' | 'half-day' | 'leave';
-    hoursWorked: string;
+    checkInTime: string | null;
+    checkOutTime: string | null;
+    status: 'Present' | 'Absent' | 'Half-day' | 'Leave';
 }
 
 interface ActiveSession {
@@ -27,22 +27,58 @@ export const Attendance: React.FC = () => {
     const [isCheckedIn, setIsCheckedIn] = useState(false);
     const [elapsedTime, setElapsedTime] = useState(0);
     const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    // Load attendance records and active session from localStorage
+    // Load attendance records from backend
     useEffect(() => {
-        const stored = localStorage.getItem(`attendance_${user?.employeeId}`);
-        if (stored) {
-            setAttendanceRecords(JSON.parse(stored));
+        if (user?.employeeUUID) {
+            loadAttendanceData();
+            checkActiveSession();
+        } else {
+            setLoading(false);
+        }
+    }, [user?.employeeUUID]);
+
+    const loadAttendanceData = async () => {
+        if (!user?.employeeUUID) {
+            console.error('employeeUUID is missing. Please logout and login again.');
+            showToast('error', 'Please logout and login again to load attendance data');
+            setLoading(false);
+            return;
         }
 
+        try {
+            setLoading(true);
+            const startDate = '2026-01-01';
+            const endDate = '2026-12-31';
+            console.log('Fetching attendance for:', user.employeeUUID);
+            const response = await api.getAttendance(user.employeeUUID, { startDate, endDate });
+            console.log('Attendance response:', response);
+            setAttendanceRecords((response as any).attendance || []);
+        } catch (error: any) {
+            console.error('Attendance fetch error:', error);
+            showToast('error', error.message || 'Failed to load attendance data');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const checkActiveSession = () => {
         const activeSession = localStorage.getItem(`active_session_${user?.employeeId}`);
         if (activeSession) {
             const session: ActiveSession = JSON.parse(activeSession);
-            setIsCheckedIn(true);
-            const elapsed = Math.floor((Date.now() - session.checkInTime) / 1000);
-            setElapsedTime(elapsed);
+            // Check if it's today's session
+            const today = new Date().toISOString().split('T')[0];
+            if (session.date === today) {
+                setIsCheckedIn(true);
+                const elapsed = Math.floor((Date.now() - session.checkInTime) / 1000);
+                setElapsedTime(elapsed);
+            } else {
+                // Clear old session
+                localStorage.removeItem(`active_session_${user?.employeeId}`);
+            }
         }
-    }, [user]);
+    };
 
     // Timer effect
     useEffect(() => {
@@ -64,69 +100,100 @@ export const Attendance: React.FC = () => {
         return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    const handleToggle = () => {
-        if (!isCheckedIn) {
-            // Check In
-            const now = Date.now();
-            const session: ActiveSession = {
-                checkInTime: now,
-                date: new Date().toISOString().split('T')[0]
-            };
-            localStorage.setItem(`active_session_${user?.employeeId}`, JSON.stringify(session));
-            setIsCheckedIn(true);
-            setElapsedTime(0);
-            showToast('success', 'Checked in successfully!');
-        } else {
-            // Check Out
-            const sessionData = localStorage.getItem(`active_session_${user?.employeeId}`);
-            if (sessionData) {
-                const session: ActiveSession = JSON.parse(sessionData);
-                const checkInTime = new Date(session.checkInTime);
-                const checkOutTime = new Date();
-                const hoursWorked = (elapsedTime / 3600).toFixed(1);
+    const handleToggle = async () => {
+        if (!user?.employeeUUID) {
+            showToast('error', 'Employee ID not found');
+            return;
+        }
 
-                const newRecord: AttendanceRecord = {
-                    id: Date.now().toString(),
-                    date: session.date,
-                    checkIn: checkInTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-                    checkOut: checkOutTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-                    status: 'present',
-                    hoursWorked: `${hoursWorked}h`
+        try {
+            if (!isCheckedIn) {
+                // Check In
+                await api.checkIn(user.employeeUUID);
+                
+                const now = Date.now();
+                const session: ActiveSession = {
+                    checkInTime: now,
+                    date: new Date().toISOString().split('T')[0]
                 };
-
-                const updated = [newRecord, ...attendanceRecords];
-                setAttendanceRecords(updated);
-                localStorage.setItem(`attendance_${user?.employeeId}`, JSON.stringify(updated));
-                localStorage.removeItem(`active_session_${user?.employeeId}`);
+                localStorage.setItem(`active_session_${user.employeeId}`, JSON.stringify(session));
+                setIsCheckedIn(true);
+                setElapsedTime(0);
+                showToast('success', 'Checked in successfully!');
+                
+                // Reload attendance data
+                await loadAttendanceData();
+            } else {
+                // Check Out
+                await api.checkOut(user.employeeUUID);
+                
+                const hoursWorked = (elapsedTime / 3600).toFixed(1);
+                localStorage.removeItem(`active_session_${user.employeeId}`);
                 
                 setIsCheckedIn(false);
                 setElapsedTime(0);
                 showToast('success', `Checked out successfully! Worked ${hoursWorked} hours`);
+                
+                // Reload attendance data
+                await loadAttendanceData();
             }
+        } catch (error: any) {
+            showToast('error', error.message || 'Failed to process attendance');
         }
     };
 
     const calculateStats = () => {
         const totalDays = 22;
-        const present = attendanceRecords.filter(r => r.status === 'present').length;
-        const leaves = attendanceRecords.filter(r => r.status === 'leave').length;
-        const absent = totalDays - present - leaves;
-        const attendanceRate = Math.round((present / totalDays) * 100);
+        const present = attendanceRecords.filter(r => r.status === 'Present' && r.checkInTime && r.checkOutTime).length;
+        const leaves = attendanceRecords.filter(r => r.status === 'Leave').length;
+        const halfDays = attendanceRecords.filter(r => r.status === 'Half-day').length;
+        const absent = attendanceRecords.filter(r => r.status === 'Absent').length;
+        const attendanceRate = present > 0 ? Math.round((present / totalDays) * 100) : 0;
 
-        return { totalDays, present, absent, leaves, attendanceRate };
+        return { totalDays, present, absent, leaves: leaves + halfDays, attendanceRate };
+    };
+
+    const calculateHoursWorked = (checkInTime: string | null, checkOutTime: string | null): string => {
+        if (!checkInTime || !checkOutTime) return '-';
+        
+        const checkIn = new Date(checkInTime);
+        const checkOut = new Date(checkOutTime);
+        const hours = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
+        return `${hours.toFixed(1)}h`;
+    };
+
+    const formatTime12Hour = (isoTime: string | null): string => {
+        if (!isoTime) return '-';
+        return new Date(isoTime).toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true 
+        });
     };
 
     const stats = calculateStats();
 
     const getStatusBadge = (status: string) => {
         const badges = {
-            present: { label: 'Present', class: 'status-present' },
-            absent: { label: 'Absent', class: 'status-absent' },
-            'half-day': { label: 'Half Day', class: 'status-half-day' },
-            leave: { label: 'Leave', class: 'status-leave' },
+            Present: { label: 'Present', class: 'status-present' },
+            Absent: { label: 'Absent', class: 'status-absent' },
+            'Half-day': { label: 'Half Day', class: 'status-half-day' },
+            Leave: { label: 'Leave', class: 'status-leave' },
         };
-        return badges[status as keyof typeof badges] || badges.present;
+        return badges[status as keyof typeof badges] || badges.Present;
     };
+
+    if (loading) {
+        return (
+            <DashboardLayout>
+                <div className="attendance-container">
+                    <div style={{ textAlign: 'center', padding: '3rem' }}>
+                        <div className="loading-spinner">Loading attendance data...</div>
+                    </div>
+                </div>
+            </DashboardLayout>
+        );
+    }
 
     return (
         <DashboardLayout>
@@ -218,10 +285,10 @@ export const Attendance: React.FC = () => {
                                         </td>
                                     </tr>
                                 ) : (
-                                    attendanceRecords.map((record, index) => {
+                                    attendanceRecords.map((record) => {
                                         const badge = getStatusBadge(record.status);
                                         return (
-                                            <tr key={index}>
+                                            <tr key={record.id}>
                                                 <td>
                                                     {new Date(record.date).toLocaleDateString('en-US', {
                                                         weekday: 'short',
@@ -230,9 +297,9 @@ export const Attendance: React.FC = () => {
                                                         day: 'numeric',
                                                     })}
                                                 </td>
-                                                <td>{record.checkIn}</td>
-                                                <td>{record.checkOut}</td>
-                                                <td>{record.hoursWorked}</td>
+                                                <td>{formatTime12Hour(record.checkInTime)}</td>
+                                                <td>{formatTime12Hour(record.checkOutTime)}</td>
+                                                <td>{calculateHoursWorked(record.checkInTime, record.checkOutTime)}</td>
                                                 <td>
                                                     <span className={`status-badge ${badge.class}`}>
                                                         {badge.label}

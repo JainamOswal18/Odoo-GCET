@@ -7,6 +7,7 @@ interface User {
     email: string;
     role: 'Admin' | 'Employee';
     employeeId: string;
+    employeeUUID: string;
     department?: string;
     position?: string;
 }
@@ -71,6 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 email: response.user.email,
                 role: response.user.role as 'Admin' | 'Employee',
                 employeeId: response.employee?.employeeId || '',
+                employeeUUID: response.employee?.id || '',
                 department: response.employee?.department,
                 position: response.employee?.position,
             };

@@ -44,4 +44,31 @@ router.post(
     payrollController.markPayrollAsPaid
 );
 
+router.get(
+    '/:employeeId/components',
+    verifyToken,
+    payrollController.getSalaryComponents
+);
+
+router.post(
+    '/:employeeId/components',
+    verifyToken,
+    checkRole([ROLES.ADMIN]),
+    payrollController.createSalaryComponent
+);
+
+router.put(
+    '/:employeeId/components/:componentId',
+    verifyToken,
+    checkRole([ROLES.ADMIN]),
+    payrollController.updateSalaryComponent
+);
+
+router.delete(
+    '/:employeeId/components/:componentId',
+    verifyToken,
+    checkRole([ROLES.ADMIN]),
+    payrollController.deleteSalaryComponent
+);
+
 export default router;

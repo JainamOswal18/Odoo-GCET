@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { X } from 'lucide-react';
 import './Sidebar.css';
 
 interface NavItem {
@@ -14,7 +15,7 @@ const adminNavItems: NavItem[] = [
     { path: '/signup', label: 'Register Employee', icon: '➕' },
     { path: '/admin/employees', label: 'Employees', icon: '👥' },
     { path: '/admin/attendance', label: 'Attendance', icon: '📅' },
-    { path: '/admin/leave-approvals', label: 'Leave Management', icon: '🕐' },
+    { path: '/admin/leave-approvals', label: 'Time Off', icon: '🕐' },
     { path: '/admin/payroll', label: 'Payroll', icon: '💰' },
     { path: '/admin/reports', label: 'Reports', icon: '📊' },
     { path: '/profile', label: 'Profile', icon: '👤' },
@@ -24,7 +25,7 @@ const employeeNavItems: NavItem[] = [
     { path: '/dashboard', label: 'Dashboard', icon: '🏠' },
     { path: '/profile', label: 'Profile', icon: '👤' },
     { path: '/attendance', label: 'Attendance', icon: '📅' },
-    { path: '/leave', label: 'Leave', icon: '🕐' },
+    { path: '/leave', label: 'Time Off', icon: '🕐' },
     { path: '/salary', label: 'Salary', icon: '💰' },
 ];
 
@@ -46,6 +47,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                         <div className="logo-circle-small">HR</div>
                         <span className="logo-text">HRMS</span>
                     </div>
+                    <button className="sidebar-close-btn" onClick={onClose} aria-label="Close menu">
+                        <X size={20} />
+                    </button>
                 </div>
 
                 <nav className="sidebar-nav">

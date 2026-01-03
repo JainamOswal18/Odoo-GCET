@@ -265,7 +265,63 @@ class ApiService {
 
         return this.handleResponse(response);
     }
+
+    // Payroll APIs
+    async getPayroll(employeeId: string, params?: { month?: string; year?: number }) {
+        const queryParams = new URLSearchParams();
+        if (params?.month) queryParams.append('month', params.month);
+        if (params?.year) queryParams.append('year', params.year.toString());
+
+        const response = await fetch(
+            `${API_BASE_URL}/payroll/${employeeId}?${queryParams.toString()}`,
+            {
+                method: 'GET',
+                headers: this.getHeaders(true),
+            }
+        );
+
+        return this.handleResponse(response);
+    }
+
+    async getSalaryComponents(employeeId: string) {
+        const response = await fetch(`${API_BASE_URL}/payroll/${employeeId}/components`, {
+            method: 'GET',
+            headers: this.getHeaders(true),
+        });
+
+        return this.handleResponse(response);
+    }
+
+    async createSalaryComponent(employeeId: string, data: any) {
+        const response = await fetch(`${API_BASE_URL}/payroll/${employeeId}/components`, {
+            method: 'POST',
+            headers: this.getHeaders(true),
+            body: JSON.stringify(data),
+        });
+
+        return this.handleResponse(response);
+    }
+
+    async updateSalaryComponent(employeeId: string, componentId: string, data: any) {
+        const response = await fetch(`${API_BASE_URL}/payroll/${employeeId}/components/${componentId}`, {
+            method: 'PUT',
+            headers: this.getHeaders(true),
+            body: JSON.stringify(data),
+        });
+
+        return this.handleResponse(response);
+    }
+
+    async deleteSalaryComponent(employeeId: string, componentId: string) {
+        const response = await fetch(`${API_BASE_URL}/payroll/${employeeId}/components/${componentId}`, {
+            method: 'DELETE',
+            headers: this.getHeaders(true),
+        });
+
+        return this.handleResponse(response);
+    }
 }
 
 export const api = new ApiService();
 export default api;
+

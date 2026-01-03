@@ -116,7 +116,7 @@ const EmployeeDashboard: React.FC = () => {
             activities.push(
                 { icon: '👋', text: 'Welcome to your dashboard!', time: 'Today' },
                 { icon: '📊', text: 'Check your attendance records', time: 'Suggestion' },
-                { icon: '🏖️', text: 'Apply for leave when needed', time: 'Suggestion' }
+                { icon: '🏖️', text: 'Request time off when needed', time: 'Suggestion' }
             );
         }
 
@@ -230,7 +230,7 @@ const EmployeeDashboard: React.FC = () => {
                 <Card className="stat-card" hoverable>
                     <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}>🕐</div>
                     <div className="stat-content">
-                        <div className="stat-label">Pending Leave Requests</div>
+                        <div className="stat-label">Pending Time Off Requests</div>
                         <div className="stat-value">{pendingLeaves}</div>
                         <div className="stat-subtext">Awaiting approval</div>
                     </div>
@@ -239,7 +239,7 @@ const EmployeeDashboard: React.FC = () => {
                 <Card className="stat-card" hoverable>
                     <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' }}>🏖️</div>
                     <div className="stat-content">
-                        <div className="stat-label">Leave Balance</div>
+                        <div className="stat-label">Time Off Balance</div>
                         <div className="stat-value">{totalLeaveBalance} days</div>
                         <div className="stat-subtext">Paid: {paidBalance}, Sick: {sickBalance}</div>
                     </div>
@@ -259,7 +259,7 @@ const EmployeeDashboard: React.FC = () => {
                 <h2 className="section-title">Quick Actions</h2>
                 <div className="action-buttons">
                     <Button variant="primary" onClick={() => navigate('/leave')}>
-                        Apply for Leave
+                        Request Time Off
                     </Button>
                     <Button variant="secondary" onClick={() => navigate('/attendance')}>
                         View Attendance
