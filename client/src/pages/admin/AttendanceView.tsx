@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../components/DashboardLayout';
 import { Card } from '../../components/Card';
 import { Calendar, Search } from 'lucide-react';
+import api from '../../services/api';
+import { useToast } from '../../context/ToastContext';
 import './AttendanceView.css';
 
 interface AttendanceRecord {
@@ -22,33 +24,52 @@ export const AttendanceView: React.FC = () => {
     const [attendanceData, setAttendanceData] = useState<EmployeeAttendance[]>([]);
     const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
     const [searchTerm, setSearchTerm] = useState('');
+    const { showToast } = useToast();
 
     useEffect(() => {
         loadAllAttendance();
     }, []);
 
-    const loadAllAttendance = () => {
-        const registeredUsers = localStorage.getItem('registeredUsers');
-        if (!registeredUsers) return;
+    const loadAllAttendance = async () => {
+        try {
+            const response = await api.getAllAttendance();
+            const rawData = response.attendance;
 
-        const users = JSON.parse(registeredUsers);
-        const allAttendance: EmployeeAttendance[] = [];
+            // Group by employee
+            const groupedData: { [key: string]: EmployeeAttendance } = {};
 
-        users.forEach((user: any) => {
-            if (user.role === 'employee') {
-                const userAttendance = localStorage.getItem(`attendance_${user.employeeId}`);
-                if (userAttendance) {
-                    const records = JSON.parse(userAttendance);
-                    allAttendance.push({
-                        employeeId: user.employeeId,
-                        employeeName: user.name,
-                        records: records
-                    });
+            rawData.forEach((record: any) => {
+                const empId = record.empCode || record.employeeId; // Use empCode (employeeId from employees table)
+                if (!groupedData[empId]) {
+                    groupedData[empId] = {
+                        employeeId: empId,
+                        employeeName: `${record.firstName} ${record.lastName}`,
+                        records: []
+                    };
                 }
-            }
-        });
 
-        setAttendanceData(allAttendance);
+                // Calculate hours worked
+                let hoursWorked = '-';
+                if (record.checkInTime && record.checkOutTime) {
+                    const start = new Date(record.checkInTime).getTime();
+                    const end = new Date(record.checkOutTime).getTime();
+                    const diff = (end - start) / (1000 * 60 * 60);
+                    hoursWorked = `${diff.toFixed(1)} hrs`;
+                }
+
+                groupedData[empId].records.push({
+                    date: record.date,
+                    checkIn: record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString() : '-',
+                    checkOut: record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString() : '-',
+                    hoursWorked: hoursWorked,
+                    status: record.status.toLowerCase()
+                });
+            });
+
+            setAttendanceData(Object.values(groupedData));
+        } catch (error: any) {
+            showToast('error', error.message || 'Failed to load attendance data');
+        }
     };
 
     const filteredData = attendanceData.filter(emp => {

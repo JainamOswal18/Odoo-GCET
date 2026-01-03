@@ -144,6 +144,14 @@ const AppRoutes: React.FC = () => {
                 }
             />
             <Route
+                path="/admin/employees/profile"
+                element={
+                    <ProtectedRoute>
+                        <Profile />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
                 path="/admin/leave-approvals"
                 element={
                     <ProtectedRoute>

@@ -8,6 +8,13 @@ import { ROLES } from '../config/constants.js';
 const router = express.Router();
 
 router.get(
+    '/',
+    verifyToken,
+    checkRole([ROLES.ADMIN]),
+    payrollController.getAllPayroll
+);
+
+router.get(
     '/:employeeId',
     verifyToken,
     validateQuery(payrollValidator.getPayrollSchema),

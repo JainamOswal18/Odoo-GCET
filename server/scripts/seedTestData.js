@@ -385,7 +385,7 @@ async function generatePayrollData(db, employeeId, designation) {
     // Generate payroll for last 3 months
     for (let i = 0; i < 3; i++) {
         const payrollDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const payrollMonth = payrollDate.toLocaleString('default', { month: 'long' });
+        const payrollMonth = String(payrollDate.getMonth() + 1).padStart(2, '0');
         const payrollYear = payrollDate.getFullYear();
         
         await db.run(

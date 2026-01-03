@@ -6,11 +6,13 @@ import { Button } from '../../components/Button';
 import { Modal } from '../../components/Modal';
 import { useToast } from '../../context/ToastContext';
 import { DollarSign, Plus, Eye, Download, Calendar, Users, TrendingUp, Edit } from 'lucide-react';
+import api from '../../services/api';
 import './PayrollManagement.css';
 
 interface PayrollRecord {
     id: string;
     employeeId: string;
+    employeeCode?: string;
     employeeName: string;
     month: string;
     year: number;
@@ -46,151 +48,159 @@ export const PayrollManagement: React.FC = () => {
 
     useEffect(() => {
         loadEmployees();
-        loadPayrollRecords();
     }, []);
 
-    const loadEmployees = () => {
-        const registeredUsers = localStorage.getItem('registeredUsers');
-        if (registeredUsers) {
-            const users = JSON.parse(registeredUsers);
-            const employeeList = users.filter((u: any) => u.role === 'employee');
-            setEmployees(employeeList);
+    useEffect(() => {
+        loadPayrollRecords();
+    }, [selectedMonth, filterStatus]);
+
+    const loadEmployees = async () => {
+        try {
+            const response = await api.getAllEmployees({ limit: 100 }) as any;
+            setEmployees(response.employees || []);
+        } catch (error: any) {
+            showToast('error', error.message || 'Failed to load employees');
         }
     };
 
-    const loadPayrollRecords = () => {
-        const stored = localStorage.getItem('payroll_records');
-        if (stored) {
-            setPayrollRecords(JSON.parse(stored));
+    const loadPayrollRecords = async () => {
+        try {
+            const [year, month] = selectedMonth.split('-');
+            const response = await api.getAllPayroll({
+                month,
+                year: parseInt(year),
+                status: filterStatus === 'all' ? undefined : filterStatus
+            });
+            
+            const records = response.payroll.map((p: any) => ({
+                id: p.id,
+                employeeId: p.employeeId,
+                employeeCode: p.empCode,
+                employeeName: `${p.firstName} ${p.lastName}`,
+                month: p.month,
+                year: p.year,
+                basicSalary: p.baseSalary, // Note: API returns baseSalary
+                allowances: p.allowances,
+                deductions: p.deductions,
+                bonus: p.bonus,
+                netSalary: p.netSalary,
+                status: p.status.toLowerCase(),
+                createdAt: p.createdAt,
+                processedAt: p.processedAt
+            }));
+            setPayrollRecords(records);
+        } catch (error: any) {
+            showToast('error', error.message || 'Failed to load payroll records');
         }
     };
 
-    const savePayrollRecords = (records: PayrollRecord[]) => {
-        localStorage.setItem('payroll_records', JSON.stringify(records));
-        setPayrollRecords(records);
-    };
-
-    const handleCreatePayroll = (e: React.FormEvent) => {
+    const handleCreatePayroll = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        const employee = employees.find(e => e.employeeId === formData.employeeId);
-        if (!employee) {
+        if (!formData.employeeId) {
             showToast('error', 'Please select an employee');
             return;
         }
 
-        // Check if payroll already exists for this employee and month
-        const existing = payrollRecords.find(
-            p => p.employeeId === formData.employeeId && 
-            p.month === formData.month.split('-')[1] && 
-            p.year === parseInt(formData.month.split('-')[0])
-        );
+        try {
+            const [year, month] = formData.month.split('-');
+            await api.createPayroll(formData.employeeId, {
+                month,
+                year: parseInt(year),
+                baseSalary: Number(formData.basicSalary),
+                allowances: Number(formData.allowances),
+                deductions: Number(formData.deductions),
+                bonus: Number(formData.bonus)
+            });
 
-        if (existing) {
-            showToast('error', 'Payroll already exists for this employee and month');
-            return;
+            showToast('success', 'Payroll created successfully');
+            setShowCreateModal(false);
+            loadPayrollRecords();
+            resetForm();
+        } catch (error: any) {
+            showToast('error', error.message || 'Failed to create payroll');
         }
-
-        const netSalary = formData.basicSalary + formData.allowances + formData.bonus - formData.deductions;
-
-        const newPayroll: PayrollRecord = {
-            id: Date.now().toString(),
-            employeeId: formData.employeeId,
-            employeeName: employee.name,
-            month: formData.month.split('-')[1],
-            year: parseInt(formData.month.split('-')[0]),
-            basicSalary: formData.basicSalary,
-            allowances: formData.allowances,
-            deductions: formData.deductions,
-            bonus: formData.bonus,
-            netSalary,
-            status: 'draft',
-            createdAt: new Date().toISOString()
-        };
-
-        const updated = [...payrollRecords, newPayroll];
-        savePayrollRecords(updated);
-        showToast('success', 'Payroll created successfully');
-        setShowCreateModal(false);
-        resetForm();
     };
 
-    const handleEditPayroll = (e: React.FormEvent) => {
+    const handleEditPayroll = async (e: React.FormEvent) => {
         e.preventDefault();
-        
         if (!editingPayroll) return;
 
-        const netSalary = formData.basicSalary + formData.allowances + formData.bonus - formData.deductions;
+        try {
+            await api.updatePayroll(editingPayroll.id, {
+                baseSalary: Number(formData.basicSalary),
+                allowances: Number(formData.allowances),
+                deductions: Number(formData.deductions),
+                bonus: Number(formData.bonus)
+            });
 
-        const updated = payrollRecords.map(p => 
-            p.id === editingPayroll.id
-                ? { ...p, ...formData, netSalary }
-                : p
-        );
-
-        savePayrollRecords(updated);
-        showToast('success', 'Payroll updated successfully');
-        setShowEditModal(false);
-        setEditingPayroll(null);
-        resetForm();
+            showToast('success', 'Payroll updated successfully');
+            setShowEditModal(false);
+            setEditingPayroll(null);
+            loadPayrollRecords();
+            resetForm();
+        } catch (error: any) {
+            showToast('error', error.message || 'Failed to update payroll');
+        }
     };
 
-    const handleProcessPayroll = (payrollId: string) => {
-        const updated = payrollRecords.map(p =>
-            p.id === payrollId
-                ? { ...p, status: 'processed' as const, processedAt: new Date().toISOString() }
-                : p
-        );
-        savePayrollRecords(updated);
-        showToast('success', 'Payroll processed successfully');
+    const handleProcessPayroll = async (id: string) => {
+        try {
+            await api.processPayroll(id);
+            showToast('success', 'Payroll processed successfully');
+            loadPayrollRecords();
+        } catch (error: any) {
+            showToast('error', error.message || 'Failed to process payroll');
+        }
     };
 
-    const handleMarkAsPaid = (payrollId: string) => {
-        const updated = payrollRecords.map(p =>
-            p.id === payrollId
-                ? { ...p, status: 'paid' as const }
-                : p
-        );
-        savePayrollRecords(updated);
-        showToast('success', 'Payroll marked as paid');
+    const handleMarkAsPaid = async (id: string) => {
+        try {
+            await api.markPayrollAsPaid(id);
+            showToast('success', 'Payroll marked as paid');
+            loadPayrollRecords();
+        } catch (error: any) {
+            showToast('error', error.message || 'Failed to mark payroll as paid');
+        }
     };
 
-    const handleBulkCreate = () => {
+
+    const handleBulkCreate = async () => {
         const [year, month] = selectedMonth.split('-');
         let created = 0;
 
-        employees.forEach(emp => {
-            const existing = payrollRecords.find(
-                p => p.employeeId === emp.employeeId && 
-                p.month === month && 
-                p.year === parseInt(year)
-            );
+        try {
+            // This would ideally be a bulk create API endpoint
+            // For now, we'll iterate and create individually (not efficient but works for small scale)
+            for (const emp of employees) {
+                // Check if payroll already exists in our local list (which is synced with server)
+                const existing = payrollRecords.find(
+                    p => p.employeeId === emp.id && // Use emp.id (UUID) not employeeId (code)
+                    p.month === month && 
+                    p.year === parseInt(year)
+                );
 
-            if (!existing) {
-                const newPayroll: PayrollRecord = {
-                    id: `${Date.now()}_${emp.employeeId}`,
-                    employeeId: emp.employeeId,
-                    employeeName: emp.name,
-                    month,
-                    year: parseInt(year),
-                    basicSalary: emp.salary || 45000,
-                    allowances: 5000,
-                    deductions: 2000,
-                    bonus: 0,
-                    netSalary: (emp.salary || 45000) + 5000 - 2000,
-                    status: 'draft',
-                    createdAt: new Date().toISOString()
-                };
-                payrollRecords.push(newPayroll);
-                created++;
+                if (!existing) {
+                    await api.createPayroll(emp.id, {
+                        month,
+                        year: parseInt(year),
+                        baseSalary: emp.salary || 45000,
+                        allowances: 5000,
+                        deductions: 2000,
+                        bonus: 0
+                    });
+                    created++;
+                }
             }
-        });
 
-        if (created > 0) {
-            savePayrollRecords([...payrollRecords]);
-            showToast('success', `Created payroll for ${created} employees`);
-        } else {
-            showToast('info', 'Payroll already exists for all employees in this period');
+            if (created > 0) {
+                showToast('success', `Created payroll for ${created} employees`);
+                loadPayrollRecords();
+            } else {
+                showToast('info', 'Payroll already exists for all employees in this period');
+            }
+        } catch (error: any) {
+            showToast('error', error.message || 'Failed to create bulk payroll');
         }
     };
 
@@ -389,7 +399,7 @@ Generated: ${new Date().toLocaleDateString()}
                                             <td className="employee-cell">
                                                 <div className="employee-info">
                                                     <div className="employee-name">{payroll.employeeName}</div>
-                                                    <div className="employee-id">{payroll.employeeId}</div>
+                                                    <div className="employee-id">{payroll.employeeCode || payroll.employeeId}</div>
                                                 </div>
                                             </td>
                                             <td>{getMonthName(payroll.month)} {payroll.year}</td>
@@ -434,7 +444,7 @@ Generated: ${new Date().toLocaleDateString()}
                                                     )}
                                                     <button
                                                         className="action-btn view"
-                                                        onClick={() => navigate(`/profile?employeeId=${payroll.employeeId}`)}
+                                                        onClick={() => navigate(`/admin/employees/profile?employeeId=${payroll.employeeId}`)}
                                                         title="View Employee"
                                                     >
                                                         <Eye size={16} />

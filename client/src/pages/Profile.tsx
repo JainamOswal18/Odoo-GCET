@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
+import { ArrowLeft } from 'lucide-react';
 import api from '../services/api';
 import './Profile.css';
 
@@ -44,6 +45,7 @@ export const Profile: React.FC = () => {
     const { user } = useAuth();
     const { showToast } = useToast();
     const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
     const viewEmployeeId = searchParams.get('employeeId');
     
     const [activeTab, setActiveTab] = useState<TabType>('resume');
@@ -131,7 +133,9 @@ export const Profile: React.FC = () => {
         if (!employeeData) return;
 
         try {
-            await api.updateEmployeeProfile(employeeData.id, formData);
+            // Filter out fields that cannot be updated (email, dateOfJoining)
+            const { email, dateOfJoining, ...updateData } = formData;
+            await api.updateEmployeeProfile(employeeData.id, updateData);
             showToast('success', 'Profile updated successfully!');
             setIsEditing(false);
             await loadEmployeeData(employeeData.id);
@@ -479,7 +483,18 @@ export const Profile: React.FC = () => {
         <DashboardLayout>
             <div className="profile-container">
                 <div className="profile-header">
-                    <h1>{isViewingOwnProfile ? 'My Profile' : `${fullName}'s Profile`}</h1>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        {viewEmployeeId && (
+                            <Button 
+                                variant="secondary" 
+                                onClick={() => navigate('/admin/employees')}
+                                style={{ padding: '0.5rem' }}
+                            >
+                                <ArrowLeft size={20} />
+                            </Button>
+                        )}
+                        <h1>{isViewingOwnProfile ? 'My Profile' : `${fullName}'s Profile`}</h1>
+                    </div>
                     {!isEditing && canEdit() && activeTab !== 'security' && (
                         <Button variant="primary" onClick={() => setIsEditing(true)}>
                             Edit Profile

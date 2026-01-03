@@ -6,6 +6,12 @@ import { verifyToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
+router.get(
+    '/',
+    verifyToken,
+    attendanceController.getAllAttendance
+);
+
 router.post(
     '/:employeeId/check-in',
     verifyToken,

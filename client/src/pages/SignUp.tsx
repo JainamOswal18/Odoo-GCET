@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { DashboardLayout } from '../components/DashboardLayout';
 import { Input } from '../components/Input';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Modal } from '../components/Modal';
-import './SignIn.css';
+import './SignUp.css';
 
 export const SignUp: React.FC = () => {
     const [formData, setFormData] = useState({
@@ -39,6 +40,10 @@ export const SignUp: React.FC = () => {
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
+
+        if (!formData.companyName) {
+            newErrors.companyName = 'Company name is required';
+        }
 
         if (!formData.firstName) {
             newErrors.firstName = 'First name is required';
@@ -129,32 +134,25 @@ export const SignUp: React.FC = () => {
     };
 
     return (
-        <div className="auth-container">
-            <Card className="auth-card signup-card">
-                <div className="auth-logo">
-                    <div className="logo-circle">HR</div>
-                </div>
+        <DashboardLayout>
+            <div className="signup-page-container">
+                <Card className="signup-form-card">
+                    <div className="signup-header">
+                        <h1 className="signup-title">Register New Employee</h1>
+                        <p className="signup-subtitle">Create a new employee account</p>
+                    </div>
 
-                <h1 className="auth-title">Register New Employee</h1>
-                <p className="auth-subtitle">Create a new employee account</p>
+                    <div className="signup-note">
+                        <div className="note-title">📝 Note</div>
+                        <ul className="note-list">
+                            <li>Only HR officers or Admins can register new employees</li>
+                            <li>Login ID will be auto-generated in format: <strong>OI[Name][Year][Serial]</strong></li>
+                            <li>Initial password will be auto-generated and displayed after registration</li>
+                            <li>Employee can login and change their password after first login</li>
+                        </ul>
+                    </div>
 
-                <div className="auth-note" style={{
-                    background: 'rgba(217, 70, 239, 0.1)',
-                    border: '1px solid rgba(217, 70, 239, 0.3)',
-                    borderRadius: '8px',
-                    padding: '16px',
-                    marginBottom: '20px',
-                }}>
-                    <div style={{ fontWeight: '600', marginBottom: '8px' }}>📝 Note</div>
-                    <ul style={{ fontSize: '14px', lineHeight: '1.6', paddingLeft: '20px', margin: 0 }}>
-                        <li>Only HR officers or Admins can register new employees</li>
-                        <li>Login ID will be auto-generated in format: <strong>OI[Name][Year][Serial]</strong></li>
-                        <li>Initial password will be auto-generated and displayed after registration</li>
-                        <li>Employee can login and change their password after first login</li>
-                    </ul>
-                </div>
-
-                <form onSubmit={handleSubmit} className="auth-form">
+                    <form onSubmit={handleSubmit} className="signup-form">
                     <Input
                         type="text"
                         label="Company Name"
@@ -163,6 +161,7 @@ export const SignUp: React.FC = () => {
                         value={formData.companyName}
                         onChange={handleChange}
                         error={errors.companyName}
+                        required
                     />
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -248,133 +247,125 @@ export const SignUp: React.FC = () => {
                     <Button type="submit" variant="primary" fullWidth loading={loading}>
                         Register Employee
                     </Button>
-                </form>
+                    </form>
 
-                <p className="auth-footer">
-                    <Button 
-                        variant="ghost" 
-                        onClick={() => navigate('/dashboard')}
-                        type="button"
+                </Card>
+
+                {/* Credentials Modal */}
+                {showCredentials && generatedCredentials && (
+                    <Modal
+                        isOpen={showCredentials}
+                        onClose={() => {
+                            setShowCredentials(false);
+                            setGeneratedCredentials(null);
+                        }}
+                        title="Employee Credentials Generated"
                     >
-                        Back to Dashboard
-                    </Button>
-                </p>
-            </Card>
+                        <div style={{ padding: '20px' }}>
+                            <div style={{
+                                background: '#10B981',
+                                color: 'white',
+                                padding: '12px',
+                                borderRadius: '6px',
+                                marginBottom: '16px',
+                                textAlign: 'center',
+                            }}>
+                                ✅ Employee account created successfully!
+                            </div>
 
-            {/* Credentials Modal */}
-            {showCredentials && generatedCredentials && (
-                <Modal
-                    isOpen={showCredentials}
-                    onClose={() => {
-                        setShowCredentials(false);
-                        setGeneratedCredentials(null);
-                    }}
-                    title="Employee Credentials Generated"
-                >
-                    <div style={{ padding: '20px' }}>
-                        <div style={{
-                            background: '#10B981',
-                            color: 'white',
-                            padding: '12px',
-                            borderRadius: '6px',
-                            marginBottom: '16px',
-                            textAlign: 'center',
-                        }}>
-                            ✅ Employee account created successfully!
-                        </div>
+                            <div style={{
+                                background: '#FEF3C7',
+                                color: '#92400E',
+                                padding: '12px',
+                                borderRadius: '6px',
+                                marginBottom: '20px',
+                                fontSize: '14px',
+                            }}>
+                                ⚠️ Please save these credentials securely. Share them with the employee.
+                            </div>
 
-                        <div style={{
-                            background: '#FEF3C7',
-                            color: '#92400E',
-                            padding: '12px',
-                            borderRadius: '6px',
-                            marginBottom: '20px',
-                            fontSize: '14px',
-                        }}>
-                            ⚠️ Please save these credentials securely. Share them with the employee.
-                        </div>
-
-                        <div style={{ marginBottom: '24px' }}>
-                            <div style={{ marginBottom: '16px' }}>
-                                <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600' }}>Login ID:</label>
-                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                    <strong style={{
-                                        flex: 1,
-                                        padding: '10px',
-                                        background: '#f3f4f6',
-                                        borderRadius: '4px',
-                                    }}>{generatedCredentials.loginId}</strong>
-                                    <button
-                                        type="button"
-                                        onClick={() => copyToClipboard(generatedCredentials.loginId, 'Login ID')}
-                                        style={{
-                                            padding: '8px 12px',
-                                            background: '#D946EF',
-                                            color: 'white',
-                                            border: 'none',
+                            <div style={{ marginBottom: '24px' }}>
+                                <div style={{ marginBottom: '16px' }}>
+                                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600' }}>Login ID:</label>
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        <strong style={{
+                                            flex: 1,
+                                            padding: '10px',
+                                            background: '#f3f4f6',
                                             borderRadius: '4px',
-                                            cursor: 'pointer',
-                                        }}
-                                    >
-                                        📋 Copy
-                                    </button>
+                                        }}>{generatedCredentials.loginId}</strong>
+                                        <button
+                                            type="button"
+                                            onClick={() => copyToClipboard(generatedCredentials.loginId, 'Login ID')}
+                                            style={{
+                                                padding: '8px 12px',
+                                                background: '#D946EF',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer',
+                                            }}
+                                        >
+                                            📋 Copy
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div style={{ marginBottom: '16px' }}>
+                                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600' }}>Initial Password:</label>
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        <strong style={{
+                                            flex: 1,
+                                            padding: '10px',
+                                            background: '#f3f4f6',
+                                            borderRadius: '4px',
+                                        }}>{generatedCredentials.password}</strong>
+                                        <button
+                                            type="button"
+                                            onClick={() => copyToClipboard(generatedCredentials.password, 'Password')}
+                                            style={{
+                                                padding: '8px 12px',
+                                                background: '#D946EF',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer',
+                                            }}
+                                        >
+                                            📋 Copy
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div style={{ marginBottom: '16px' }}>
-                                <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600' }}>Initial Password:</label>
-                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                    <strong style={{
-                                        flex: 1,
-                                        padding: '10px',
-                                        background: '#f3f4f6',
-                                        borderRadius: '4px',
-                                    }}>{generatedCredentials.password}</strong>
-                                    <button
-                                        type="button"
-                                        onClick={() => copyToClipboard(generatedCredentials.password, 'Password')}
-                                        style={{
-                                            padding: '8px 12px',
-                                            background: '#D946EF',
-                                            color: 'white',
-                                            border: 'none',
-                                            borderRadius: '4px',
-                                            cursor: 'pointer',
-                                        }}
-                                    >
-                                        📋 Copy
-                                    </button>
-                                </div>
+                            <div style={{
+                                background: '#EFF6FF',
+                                padding: '16px',
+                                borderRadius: '6px',
+                                marginBottom: '20px',
+                            }}>
+                                <h4 style={{ marginTop: 0, marginBottom: '12px' }}>Next Steps:</h4>
+                                <ol style={{ marginTop: 0, marginBottom: 0, paddingLeft: '20px', fontSize: '14px' }}>
+                                    <li>Share the Login ID and password with the employee</li>
+                                    <li>Employee should login and change their password immediately</li>
+                                    <li>Keep a record of the Login ID for future reference</li>
+                                </ol>
                             </div>
-                        </div>
 
-                        <div style={{
-                            background: '#EFF6FF',
-                            padding: '16px',
-                            borderRadius: '6px',
-                            marginBottom: '20px',
-                        }}>
-                            <h4 style={{ marginTop: 0, marginBottom: '12px' }}>Next Steps:</h4>
-                            <ol style={{ marginTop: 0, marginBottom: 0, paddingLeft: '20px', fontSize: '14px' }}>
-                                <li>Share the Login ID and password with the employee</li>
-                                <li>Employee should login and change their password immediately</li>
-                                <li>Keep a record of the Login ID for future reference</li>
-                            </ol>
+                            <Button
+                                variant="primary"
+                                fullWidth
+                                onClick={() => {
+                                    setShowCredentials(false);
+                                    setGeneratedCredentials(null);
+                                }}
+                            >
+                                Done
+                            </Button>
                         </div>
-
-                        <Button
-                            variant="primary"
-                            fullWidth
-                            onClick={() => {
-                                setShowCredentials(false);
-                                setGeneratedCredentials(null);
-                            }}
-                        >
-                            Done
-                        </Button>
-                    </div>
-                </Modal>
-            )}
-        </div>
+                    </Modal>
+                )}
+            </div>
+        </DashboardLayout>
     );
 };

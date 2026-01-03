@@ -1,3 +1,114 @@
+.signup-page-container {
+    padding: 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.signup-form-card {
+    padding: 2.5rem;
+}
+
+.signup-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.signup-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem 0;
+}
+
+.signup-subtitle {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.signup-note {
+    background: rgba(217, 70, 239, 0.1);
+    border: 1px solid rgba(217, 70, 239, 0.3);
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.note-title {
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+}
+
+.note-list {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    padding-left: 1.25rem;
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+.note-list li {
+    margin-bottom: 0.5rem;
+}
+
+.note-list li:last-child {
+    margin-bottom: 0;
+}
+
+.signup-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.signup-footer {
+    margin-top: 1.5rem;
+    text-align: center;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.input-label {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.input-field {
+    padding: 0.75rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    transition: border-color 0.3s ease;
+}
+
+.input-field:focus {
+    outline: none;
+    border-color: var(--primary-purple);
+}
+
+@media (max-width: 768px) {
+    .signup-page-container {
+        padding: 1rem;
+    }
+
+    .signup-form-card {
+        padding: 1.5rem;
+    }
+
+    .signup-title {
+        font-size: 1.5rem;
+    }
+
+    .note-list {
+        font-size: 0.85rem;
+    }
+}
 .password-strength {
     margin-top: 8px;
     display: flex;

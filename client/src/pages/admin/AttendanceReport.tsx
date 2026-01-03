@@ -3,6 +3,8 @@ import { DashboardLayout } from '../../components/DashboardLayout';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { BarChart, Download, Calendar, Users, TrendingUp, FileText } from 'lucide-react';
+import api from '../../services/api';
+import { useToast } from '../../context/ToastContext';
 import './AttendanceReport.css';
 
 interface AttendanceStats {
@@ -19,63 +21,61 @@ export const AttendanceReport: React.FC = () => {
     const [stats, setStats] = useState<AttendanceStats[]>([]);
     const [month, setMonth] = useState<string>(new Date().toISOString().slice(0, 7));
     const [selectedDepartment, setSelectedDepartment] = useState('All');
+    const { showToast } = useToast();
 
     useEffect(() => {
         loadAttendanceReport();
     }, [month, selectedDepartment]);
 
-    const loadAttendanceReport = () => {
-        const registeredUsers = localStorage.getItem('registeredUsers');
-        if (!registeredUsers) return;
+    const loadAttendanceReport = async () => {
+        try {
+            const [year, monthNum] = month.split('-');
+            // Calculate start and end date of the month
+            const startDate = `${month}-01`;
+            const endDate = new Date(parseInt(year), parseInt(monthNum), 0).toISOString().split('T')[0];
 
-        const users = JSON.parse(registeredUsers);
-        const employees = users.filter((u: any) => u.role === 'employee');
+            const response = await api.getAllAttendance({ startDate, endDate });
+            const rawData = response.attendance;
 
-        const attendanceStats: AttendanceStats[] = employees.map((emp: any) => {
-            const attendanceKey = `attendance_${emp.employeeId}`;
-            const attendanceData = localStorage.getItem(attendanceKey);
-            
-            if (!attendanceData) {
-                return {
-                    employeeId: emp.employeeId,
-                    employeeName: emp.name,
-                    totalDays: 0,
-                    presentDays: 0,
-                    absentDays: 0,
-                    lateDays: 0,
-                    attendanceRate: 0
-                };
-            }
-
-            const records = JSON.parse(attendanceData);
-            const monthRecords = records.filter((r: any) => r.date.startsWith(month));
-
-            const presentDays = monthRecords.filter((r: any) => r.status === 'Present').length;
-            const absentDays = monthRecords.filter((r: any) => r.status === 'Absent').length;
-            const lateDays = monthRecords.filter((r: any) => r.status === 'Late').length;
-            const totalDays = monthRecords.length;
-            const attendanceRate = totalDays > 0 ? (presentDays / totalDays) * 100 : 0;
-
-            return {
-                employeeId: emp.employeeId,
-                employeeName: emp.name,
-                totalDays,
-                presentDays,
-                absentDays,
-                lateDays,
-                attendanceRate
-            };
-        });
-
-        // Filter by department if needed
-        if (selectedDepartment !== 'All') {
-            const filteredStats = attendanceStats.filter((stat) => {
-                const user = employees.find((e: any) => e.employeeId === stat.employeeId);
-                return user?.department === selectedDepartment;
+            // Group by employee
+            const groupedData: { [key: string]: any[] } = {};
+            rawData.forEach((record: any) => {
+                const empId = record.empCode || record.employeeId;
+                if (!groupedData[empId]) {
+                    groupedData[empId] = [];
+                }
+                groupedData[empId].push(record);
             });
-            setStats(filteredStats);
-        } else {
+
+            const attendanceStats: AttendanceStats[] = Object.keys(groupedData).map(empId => {
+                const records = groupedData[empId];
+                const employeeName = records.length > 0 ? `${records[0].firstName} ${records[0].lastName}` : 'Unknown';
+                
+                const totalDays = records.length;
+                const presentDays = records.filter((r: any) => r.status.toLowerCase() === 'present').length;
+                const absentDays = records.filter((r: any) => r.status.toLowerCase() === 'absent').length;
+                const lateDays = records.filter((r: any) => r.status.toLowerCase() === 'late').length; // Assuming 'late' status exists or logic needed
+                const attendanceRate = totalDays > 0 ? (presentDays / totalDays) * 100 : 0;
+
+                return {
+                    employeeId: empId,
+                    employeeName,
+                    totalDays,
+                    presentDays,
+                    absentDays,
+                    lateDays,
+                    attendanceRate
+                };
+            });
+
+            // Filter by department if needed (Note: Department info might need to be fetched separately or included in attendance response)
+            // For now, we'll skip department filtering on client side as attendance response doesn't have department
+            // Or we could fetch all employees to map departments.
+            
             setStats(attendanceStats);
+
+        } catch (error: any) {
+            showToast('error', error.message || 'Failed to load attendance report');
         }
     };
 

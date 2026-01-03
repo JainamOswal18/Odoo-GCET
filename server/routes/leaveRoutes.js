@@ -7,6 +7,13 @@ import { ROLES } from '../config/constants.js';
 
 const router = express.Router();
 
+router.get(
+    '/',
+    verifyToken,
+    checkRole([ROLES.ADMIN]),
+    leaveController.getAllLeaveRequests
+);
+
 router.post(
     '/:employeeId/apply',
     verifyToken,

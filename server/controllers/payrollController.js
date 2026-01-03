@@ -70,6 +70,50 @@ export const getPayroll = async (req, res) => {
     }
 };
 
+export const getAllPayroll = async (req, res) => {
+    try {
+        const db = getDb();
+        const { month, year, status } = req.query;
+
+        if (req.user.role !== ROLES.ADMIN) {
+            return res.status(403).json({ error: ERROR_MESSAGES.FORBIDDEN });
+        }
+
+        let query = `
+            SELECT p.*, e.firstName, e.lastName, e.employeeId as empCode
+            FROM payroll p
+            JOIN employees e ON p.employeeId = e.id
+        `;
+        const params = [];
+        const conditions = [];
+
+        if (month) {
+            conditions.push('p.month = ?');
+            params.push(month);
+        }
+        if (year) {
+            conditions.push('p.year = ?');
+            params.push(year);
+        }
+        if (status && status !== 'all') {
+            conditions.push('p.status = ?');
+            params.push(status);
+        }
+
+        if (conditions.length > 0) {
+            query += ' WHERE ' + conditions.join(' AND ');
+        }
+
+        query += ' ORDER BY p.year DESC, p.month DESC, e.lastName ASC';
+
+        const payroll = await db.all(query, params);
+
+        res.status(200).json({ payroll });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 export const createPayroll = async (req, res) => {
     try {
         const db = getDb();

@@ -21,5 +21,5 @@ export const getLeaveBalanceSchema = Joi.object({
 });
 
 export const approveLeaveSchema = Joi.object({
-    approvalComments: Joi.string().optional(),
+    approvalComments: Joi.string().allow('').optional(),
 });

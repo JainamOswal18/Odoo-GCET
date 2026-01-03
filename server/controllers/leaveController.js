@@ -304,3 +304,36 @@ export const getLeaveBalance = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+export const getAllLeaveRequests = async (req, res) => {
+    try {
+        const db = getDb();
+        const { status } = req.query;
+
+        if (req.user.role !== ROLES.ADMIN) {
+            return res.status(403).json({ error: ERROR_MESSAGES.FORBIDDEN });
+        }
+
+        let query = `
+            SELECT lr.*, e.firstName, e.lastName, e.employeeId as empCode
+            FROM leaveRequests lr
+            JOIN employees e ON lr.employeeId = e.id
+        `;
+        const params = [];
+
+        if (status && status !== 'all') {
+            // Convert to Title Case to match DB constants (Pending, Approved, Rejected)
+            const formattedStatus = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+            query += ' WHERE lr.status = ?';
+            params.push(formattedStatus);
+        }
+
+        query += ' ORDER BY lr.createdAt DESC';
+
+        const leaveRequests = await db.all(query, params);
+
+        res.status(200).json({ leaveRequests });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};

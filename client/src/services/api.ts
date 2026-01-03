@@ -134,6 +134,19 @@ class ApiService {
     }
 
     // Employee APIs
+    async getAllEmployees(params?: { page?: number; limit?: number; search?: string }) {
+        const queryParams = new URLSearchParams(params as any).toString();
+        const response = await fetch(
+            `${API_BASE_URL}/employees?${queryParams}`,
+            {
+                method: 'GET',
+                headers: this.getHeaders(true),
+            }
+        );
+
+        return this.handleResponse(response);
+    }
+
     async getEmployeeProfile(employeeId: string) {
         const response = await fetch(`${API_BASE_URL}/employees/${employeeId}`, {
             method: 'GET',
@@ -148,6 +161,15 @@ class ApiService {
             method: 'PUT',
             headers: this.getHeaders(true),
             body: JSON.stringify(data),
+        });
+
+        return this.handleResponse(response);
+    }
+
+    async deleteEmployee(employeeId: string) {
+        const response = await fetch(`${API_BASE_URL}/employees/${employeeId}`, {
+            method: 'DELETE',
+            headers: this.getHeaders(true),
         });
 
         return this.handleResponse(response);
@@ -192,7 +214,7 @@ class ApiService {
         endDate: string;
         remarks?: string;
     }) {
-        const response = await fetch(`${API_BASE_URL}/leave/${employeeId}/apply`, {
+        const response = await fetch(`${API_BASE_URL}/leaves/${employeeId}/apply`, {
             method: 'POST',
             headers: this.getHeaders(true),
             body: JSON.stringify(data),
@@ -204,7 +226,7 @@ class ApiService {
     async getLeaveRequests(employeeId: string, status?: string) {
         const queryParams = status ? `?status=${status}` : '';
         const response = await fetch(
-            `${API_BASE_URL}/leave/${employeeId}${queryParams}`,
+            `${API_BASE_URL}/leaves/${employeeId}${queryParams}`,
             {
                 method: 'GET',
                 headers: this.getHeaders(true),
@@ -217,7 +239,7 @@ class ApiService {
     async getLeaveBalance(employeeId: string, year?: number) {
         const queryParams = year ? `?year=${year}` : '';
         const response = await fetch(
-            `${API_BASE_URL}/leave/${employeeId}/balance${queryParams}`,
+            `${API_BASE_URL}/leaves/${employeeId}/balance${queryParams}`,
             {
                 method: 'GET',
                 headers: this.getHeaders(true),
@@ -227,8 +249,17 @@ class ApiService {
         return this.handleResponse(response);
     }
 
+    async getAllLeaveRequests(status?: string) {
+        const query = status ? `?status=${status}` : '';
+        const response = await fetch(`${API_BASE_URL}/leaves${query}`, {
+            method: 'GET',
+            headers: this.getHeaders(true),
+        });
+        return this.handleResponse<{ leaveRequests: any[] }>(response);
+    }
+
     async approveLeave(leaveRequestId: string, comments?: string) {
-        const response = await fetch(`${API_BASE_URL}/leave/approve/${leaveRequestId}`, {
+        const response = await fetch(`${API_BASE_URL}/leaves/approve/${leaveRequestId}`, {
             method: 'POST',
             headers: this.getHeaders(true),
             body: JSON.stringify({ approvalComments: comments }),
@@ -238,7 +269,7 @@ class ApiService {
     }
 
     async rejectLeave(leaveRequestId: string, comments?: string) {
-        const response = await fetch(`${API_BASE_URL}/leave/reject/${leaveRequestId}`, {
+        const response = await fetch(`${API_BASE_URL}/leaves/reject/${leaveRequestId}`, {
             method: 'POST',
             headers: this.getHeaders(true),
             body: JSON.stringify({ approvalComments: comments }),
@@ -267,6 +298,18 @@ class ApiService {
     }
 
     // Payroll APIs
+    async getAllPayroll(params?: { month?: string; year?: number; status?: string }) {
+        const queryParams = new URLSearchParams(params as any).toString();
+        const response = await fetch(
+            `${API_BASE_URL}/payroll?${queryParams}`,
+            {
+                method: 'GET',
+                headers: this.getHeaders(true),
+            }
+        );
+        return this.handleResponse<{ payroll: any[] }>(response);
+    }
+
     async getPayroll(employeeId: string, params?: { month?: string; year?: number }) {
         const queryParams = new URLSearchParams();
         if (params?.month) queryParams.append('month', params.month);
@@ -280,6 +323,40 @@ class ApiService {
             }
         );
 
+        return this.handleResponse(response);
+    }
+
+    async createPayroll(employeeId: string, data: any) {
+        const response = await fetch(`${API_BASE_URL}/payroll/${employeeId}`, {
+            method: 'POST',
+            headers: this.getHeaders(true),
+            body: JSON.stringify(data),
+        });
+        return this.handleResponse(response);
+    }
+
+    async updatePayroll(payrollId: string, data: any) {
+        const response = await fetch(`${API_BASE_URL}/payroll/${payrollId}`, {
+            method: 'PUT',
+            headers: this.getHeaders(true),
+            body: JSON.stringify(data),
+        });
+        return this.handleResponse(response);
+    }
+
+    async processPayroll(payrollId: string) {
+        const response = await fetch(`${API_BASE_URL}/payroll/${payrollId}/process`, {
+            method: 'POST',
+            headers: this.getHeaders(true),
+        });
+        return this.handleResponse(response);
+    }
+
+    async markPayrollAsPaid(payrollId: string) {
+        const response = await fetch(`${API_BASE_URL}/payroll/${payrollId}/mark-paid`, {
+            method: 'POST',
+            headers: this.getHeaders(true),
+        });
         return this.handleResponse(response);
     }
 
@@ -319,6 +396,16 @@ class ApiService {
         });
 
         return this.handleResponse(response);
+    }
+
+    // Attendance APIs
+    async getAllAttendance(params?: { date?: string; startDate?: string; endDate?: string }) {
+        const query = new URLSearchParams(params as any).toString();
+        const response = await fetch(`${API_BASE_URL}/attendance?${query}`, {
+            method: 'GET',
+            headers: this.getHeaders(true),
+        });
+        return this.handleResponse<{ attendance: any[] }>(response);
     }
 }
 

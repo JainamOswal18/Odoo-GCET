@@ -1,21 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { DashboardLayout } from '../../components/DashboardLayout';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { Users, Search, Edit, UserPlus, Mail, Phone, Calendar, Briefcase } from 'lucide-react';
+import api from '../../services/api';
 import './EmployeeManagement.css';
 
 interface Employee {
+    id: string;
     employeeId: string;
-    name: string;
+    firstName: string;
+    lastName: string;
     email: string;
     department: string;
-    position: string;
+    designation: string;
     phone: string;
-    joinDate: string;
+    joiningDate: string;
     salary: number;
-    avatar?: string;
+    profilePicture?: string;
 }
 
 // Mock avatar generator based on employee name
@@ -27,43 +32,58 @@ const getAvatarUrl = (name: string, index: number) => {
 
 export const EmployeeManagement: React.FC = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const { showToast } = useToast();
     const [employees, setEmployees] = useState<Employee[]>([]);
+    const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedDepartment, setSelectedDepartment] = useState('All');
     const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
     useEffect(() => {
-        loadEmployees();
-    }, []);
+        if (user?.role === 'Admin') {
+            loadEmployees();
+        } else {
+            showToast('error', 'Only administrators can access employee management');
+            navigate('/dashboard');
+        }
+    }, [user, navigate, showToast]);
 
-    const loadEmployees = () => {
-        const registeredUsers = localStorage.getItem('registeredUsers');
-        if (registeredUsers) {
-            const users = JSON.parse(registeredUsers);
-            const employeeList = users.filter((u: any) => u.role === 'employee').map((u: any, index: number) => ({
-                employeeId: u.employeeId,
-                name: u.name,
-                email: u.email,
-                department: u.department || 'Engineering',
-                position: u.position || 'Software Developer',
-                phone: u.phone || '+91 9876543210',
-                joinDate: u.joinDate || '2024-01-01',
-                salary: u.salary || 45000,
-                avatar: getAvatarUrl(u.name, index)
-            }));
-            setEmployees(employeeList);
+    const loadEmployees = async () => {
+        try {
+            setLoading(true);
+            const response = await api.getAllEmployees({ limit: 100 }) as any;
+            setEmployees(response.employees || []);
+        } catch (error: any) {
+            showToast('error', error.message || 'Failed to load employees');
+        } finally {
+            setLoading(false);
         }
     };
 
     const filteredEmployees = employees.filter(emp => {
-        const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase();
+        const matchesSearch = fullName.includes(searchTerm.toLowerCase()) ||
             emp.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
             emp.email.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesDepartment = selectedDepartment === 'All' || emp.department === selectedDepartment;
         return matchesSearch && matchesDepartment;
     });
 
-    const departments = ['All', 'Engineering', 'HR', 'Marketing', 'Sales', 'Finance'];
+    // Get unique departments from employees
+    const departments = ['All', ...Array.from(new Set(employees.map(e => e.department).filter(d => d)))];
+
+    if (loading) {
+        return (
+            <DashboardLayout>
+                <div className="employee-management">
+                    <div style={{ textAlign: 'center', padding: '3rem' }}>
+                        <div className="loading-spinner">Loading employees...</div>
+                    </div>
+                </div>
+            </DashboardLayout>
+        );
+    }
 
     return (
         <DashboardLayout>
@@ -152,61 +172,65 @@ export const EmployeeManagement: React.FC = () => {
 
                 {viewMode === 'grid' ? (
                     <div className="employees-grid">
-                        {filteredEmployees.map((employee) => (
-                            <Card key={employee.employeeId} className="employee-card">
-                                <div className="employee-card-header">
-                                    <img 
-                                        src={employee.avatar} 
-                                        alt={employee.name}
-                                        className="employee-avatar-large"
-                                    />
-                                    <div className={`department-badge ${employee.department.toLowerCase()}`}>
-                                        {employee.department}
+                        {filteredEmployees.map((employee, index) => {
+                            const fullName = `${employee.firstName} ${employee.lastName}`;
+                            const avatar = employee.profilePicture || getAvatarUrl(fullName, index);
+                            return (
+                                <Card key={employee.id} className="employee-card">
+                                    <div className="employee-card-header">
+                                        <img 
+                                            src={avatar} 
+                                            alt={fullName}
+                                            className="employee-avatar-large"
+                                        />
+                                        <div className={`department-badge ${employee.department?.toLowerCase() || 'default'}`}>
+                                            {employee.department || 'N/A'}
+                                        </div>
                                     </div>
-                                </div>
-                                
-                                <div className="employee-card-body">
-                                    <h3 className="employee-name">{employee.name}</h3>
-                                    <p className="employee-id">ID: {employee.employeeId}</p>
-                                    <p className="employee-position">
-                                        <Briefcase size={16} />
-                                        {employee.position}
-                                    </p>
                                     
-                                    <div className="employee-contact">
-                                        <div className="contact-item">
-                                            <Mail size={14} />
-                                            <span>{employee.email}</span>
-                                        </div>
-                                        <div className="contact-item">
-                                            <Phone size={14} />
-                                            <span>{employee.phone}</span>
-                                        </div>
-                                        <div className="contact-item">
-                                            <Calendar size={14} />
-                                            <span>Joined {new Date(employee.joinDate).toLocaleDateString()}</span>
+                                    <div className="employee-card-body">
+                                        <h3 className="employee-name">{fullName}</h3>
+                                        <p className="employee-id">ID: {employee.employeeId}</p>
+                                        <p className="employee-position">
+                                            <Briefcase size={16} />
+                                            {employee.designation || 'N/A'}
+                                        </p>
+                                        
+                                        <div className="employee-contact">
+                                            <div className="contact-item">
+                                                <Mail size={14} />
+                                                <span>{employee.email}</span>
+                                            </div>
+                                            <div className="contact-item">
+                                                <Phone size={14} />
+                                                <span>{employee.phone || 'N/A'}</span>
+                                            </div>
+                                            <div className="contact-item">
+                                                <Calendar size={14} />
+                                                <span>Joined {employee.joiningDate ? new Date(employee.joiningDate).toLocaleDateString() : 'N/A'}</span>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div className="employee-card-footer">
-                                    <Button
-                                        variant="secondary"
-                                        size="small"
-                                        onClick={() => navigate(`/profile?employeeId=${employee.employeeId}`)}
-                                    >
-                                        View Profile
-                                    </Button>
-                                    <Button
-                                        size="small"
-                                        onClick={() => navigate(`/profile?employeeId=${employee.employeeId}`)}
-                                    >
-                                        <Edit size={16} />
-                                        Edit
-                                    </Button>
-                                </div>
-                            </Card>
-                        ))}
+                                    <div className="employee-card-footer">
+                                        <Button
+                                            variant="secondary"
+                                            size="small"
+                                            onClick={() => navigate(`/admin/employees/profile?employeeId=${employee.id}`)}
+                                        >
+                                            View Profile
+                                        </Button>
+                                        <Button
+                                            size="small"
+                                            onClick={() => navigate(`/admin/employees/profile?employeeId=${employee.id}`)}
+                                        >
+                                            <Edit size={16} />
+                                            Edit
+                                        </Button>
+                                    </div>
+                                </Card>
+                            );
+                        })}
                     </div>
                 ) : (
                     <Card>
@@ -232,45 +256,49 @@ export const EmployeeManagement: React.FC = () => {
                                             </td>
                                         </tr>
                                     ) : (
-                                        filteredEmployees.map((employee) => (
-                                            <tr key={employee.employeeId}>
-                                                <td>
-                                                    <img 
-                                                        src={employee.avatar} 
-                                                        alt={employee.name}
-                                                        className="employee-avatar-small"
-                                                    />
-                                                </td>
-                                                <td>{employee.employeeId}</td>
-                                                <td>{employee.name}</td>
-                                                <td>{employee.email}</td>
-                                                <td>
-                                                    <span className={`department-badge-sm ${employee.department.toLowerCase()}`}>
-                                                        {employee.department}
-                                                    </span>
-                                                </td>
-                                                <td>{employee.position}</td>
-                                                <td>{new Date(employee.joinDate).toLocaleDateString()}</td>
-                                                <td>
-                                                    <div className="action-buttons">
-                                                        <button
-                                                            className="icon-btn view"
-                                                            onClick={() => navigate(`/profile?employeeId=${employee.employeeId}`)}
-                                                            title="View Profile"
-                                                        >
-                                                            <Users size={16} />
-                                                        </button>
-                                                        <button
-                                                            className="icon-btn edit"
-                                                            onClick={() => navigate(`/profile?employeeId=${employee.employeeId}`)}
-                                                            title="Edit"
-                                                        >
-                                                            <Edit size={16} />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))
+                                        filteredEmployees.map((employee, index) => {
+                                            const fullName = `${employee.firstName} ${employee.lastName}`;
+                                            const avatar = employee.profilePicture || getAvatarUrl(fullName, index);
+                                            return (
+                                                <tr key={employee.id}>
+                                                    <td>
+                                                        <img 
+                                                            src={avatar} 
+                                                            alt={fullName}
+                                                            className="employee-avatar-small"
+                                                        />
+                                                    </td>
+                                                    <td>{employee.employeeId}</td>
+                                                    <td>{fullName}</td>
+                                                    <td>{employee.email}</td>
+                                                    <td>
+                                                        <span className={`department-badge-sm ${employee.department?.toLowerCase() || 'default'}`}>
+                                                            {employee.department || 'N/A'}
+                                                        </span>
+                                                    </td>
+                                                    <td>{employee.designation || 'N/A'}</td>
+                                                    <td>{employee.joiningDate ? new Date(employee.joiningDate).toLocaleDateString() : 'N/A'}</td>
+                                                    <td>
+                                                        <div className="action-buttons">
+                                                            <button
+                                                                className="icon-btn view"
+                                                                onClick={() => navigate(`/admin/employees/profile?employeeId=${employee.id}`)}
+                                                                title="View Profile"
+                                                            >
+                                                                <Users size={16} />
+                                                            </button>
+                                                            <button
+                                                                className="icon-btn edit"
+                                                                onClick={() => navigate(`/admin/employees/profile?employeeId=${employee.id}`)}
+                                                                title="Edit"
+                                                            >
+                                                                <Edit size={16} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
                                     )}
                                 </tbody>
                             </table>

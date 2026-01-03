@@ -244,3 +244,42 @@ export const markAttendance = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+export const getAllAttendance = async (req, res) => {
+    try {
+        const db = getDb();
+        const { startDate, endDate, date } = req.query;
+
+        if (req.user.role !== ROLES.ADMIN) {
+            return res.status(403).json({ error: ERROR_MESSAGES.FORBIDDEN });
+        }
+
+        let query = `
+            SELECT a.*, e.firstName, e.lastName, e.employeeId as empCode
+            FROM attendance a
+            JOIN employees e ON a.employeeId = e.id
+        `;
+        const params = [];
+        const conditions = [];
+
+        if (date) {
+            conditions.push('a.date = ?');
+            params.push(date);
+        } else if (startDate && endDate) {
+            conditions.push('a.date BETWEEN ? AND ?');
+            params.push(startDate, endDate);
+        }
+
+        if (conditions.length > 0) {
+            query += ' WHERE ' + conditions.join(' AND ');
+        }
+
+        query += ' ORDER BY a.date DESC, e.lastName ASC';
+
+        const attendance = await db.all(query, params);
+
+        res.status(200).json({ attendance });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};

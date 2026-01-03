@@ -4,6 +4,7 @@ import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { useToast } from '../../context/ToastContext';
 import { CheckCircle, XCircle, Clock, MessageSquare } from 'lucide-react';
+import api from '../../services/api';
 import './LeaveApproval.css';
 
 interface LeaveRequest {
@@ -31,66 +32,50 @@ export const LeaveApproval: React.FC = () => {
         loadAllLeaveRequests();
     }, []);
 
-    const loadAllLeaveRequests = () => {
-        const registeredUsers = localStorage.getItem('registeredUsers');
-        if (!registeredUsers) return;
-
-        const users = JSON.parse(registeredUsers);
-        const allRequests: LeaveRequest[] = [];
-
-        users.forEach((user: any) => {
-            if (user.role === 'employee') {
-                const userLeaves = localStorage.getItem(`leave_requests_${user.employeeId}`);
-                if (userLeaves) {
-                    const leaves = JSON.parse(userLeaves);
-                    leaves.forEach((leave: any) => {
-                        allRequests.push({
-                            ...leave,
-                            employeeName: user.name
-                        });
-                    });
-                }
-            }
-        });
-
-        // Sort by applied date (newest first)
-        allRequests.sort((a, b) => new Date(b.appliedOn).getTime() - new Date(a.appliedOn).getTime());
-        setLeaveRequests(allRequests);
-    };
-
-    const handleApprove = (request: LeaveRequest) => {
-        updateLeaveStatus(request, 'approved');
-    };
-
-    const handleReject = (request: LeaveRequest) => {
-        updateLeaveStatus(request, 'rejected');
-    };
-
-    const updateLeaveStatus = (request: LeaveRequest, status: 'approved' | 'rejected') => {
-        // Update in localStorage
-        const userLeaves = localStorage.getItem(`leave_requests_${request.employeeId}`);
-        if (userLeaves) {
-            const leaves = JSON.parse(userLeaves);
-            const updatedLeaves = leaves.map((leave: any) =>
-                leave.id === request.id
-                    ? { ...leave, status, adminComment: comment || undefined }
-                    : leave
-            );
-            localStorage.setItem(`leave_requests_${request.employeeId}`, JSON.stringify(updatedLeaves));
+    const loadAllLeaveRequests = async () => {
+        try {
+            const response = await api.getAllLeaveRequests();
+            const requests = response.leaveRequests.map((req: any) => ({
+                id: req.id,
+                employeeId: req.empCode || req.employeeId,
+                employeeName: `${req.firstName} ${req.lastName}`,
+                type: req.leaveType,
+                startDate: req.startDate,
+                endDate: req.endDate,
+                days: req.numberOfDays,
+                reason: req.remarks,
+                appliedOn: req.createdAt,
+                status: req.status.toLowerCase(),
+                adminComment: req.approvalComments
+            }));
+            setLeaveRequests(requests);
+        } catch (error: any) {
+            showToast('error', error.message || 'Failed to load leave requests');
         }
+    };
 
-        // Update state
-        setLeaveRequests(prev =>
-            prev.map(req =>
-                req.id === request.id
-                    ? { ...req, status, adminComment: comment || undefined }
-                    : req
-            )
-        );
+    const handleApprove = async (request: LeaveRequest) => {
+        try {
+            await api.approveLeave(request.id, comment);
+            showToast('success', 'Leave request approved successfully');
+            setSelectedRequest(null);
+            setComment('');
+            loadAllLeaveRequests();
+        } catch (error: any) {
+            showToast('error', error.message || 'Failed to approve leave request');
+        }
+    };
 
-        showToast('success', `Leave request ${status} successfully`);
-        setSelectedRequest(null);
-        setComment('');
+    const handleReject = async (request: LeaveRequest) => {
+        try {
+            await api.rejectLeave(request.id, comment);
+            showToast('success', 'Leave request rejected successfully');
+            setSelectedRequest(null);
+            setComment('');
+            loadAllLeaveRequests();
+        } catch (error: any) {
+            showToast('error', error.message || 'Failed to reject leave request');
+        }
     };
 
     const filteredRequests = filter === 'all'
