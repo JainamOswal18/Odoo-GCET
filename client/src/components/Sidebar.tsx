@@ -11,6 +11,7 @@ interface NavItem {
 
 const adminNavItems: NavItem[] = [
     { path: '/dashboard', label: 'Dashboard', icon: '🏠' },
+    { path: '/signup', label: 'Register Employee', icon: '➕' },
     { path: '/admin/employees', label: 'Employees', icon: '👥' },
     { path: '/admin/attendance', label: 'Attendance', icon: '📅' },
     { path: '/admin/leave-approvals', label: 'Leave Management', icon: '🕐' },
@@ -34,7 +35,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     const { user } = useAuth();
-    const navItems = user?.role === 'admin' ? adminNavItems : employeeNavItems;
+    const navItems = user?.role === 'Admin' ? adminNavItems : employeeNavItems;
 
     return (
         <>

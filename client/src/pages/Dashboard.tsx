@@ -28,7 +28,7 @@ interface Activity {
 export const Dashboard: React.FC = () => {
     const { user } = useAuth();
 
-    if (user?.role === 'admin') {
+    if (user?.role === 'Admin') {
         return <AdminDashboard />;
     }
 

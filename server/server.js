@@ -21,8 +21,8 @@ app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// Rate Limiting
-app.use('/api/auth', rateLimiter.loginLimiter);
+// Rate Limiting - Apply login limiter only to login endpoint
+app.use('/api/auth/login', rateLimiter.loginLimiter);
 app.use('/api/', rateLimiter.generalLimiter);
 
 // Routes

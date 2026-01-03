@@ -8,28 +8,24 @@ import { Card } from '../components/Card';
 import './SignIn.css';
 
 export const SignIn: React.FC = () => {
-    const [email, setEmail] = useState('');
+    const [loginId, setLoginId] = useState('');
     const [password, setPassword] = useState('');
     const [rememberMe, setRememberMe] = useState(false);
-    const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+    const [errors, setErrors] = useState<{ loginId?: string; password?: string }>({});
 
     const { login, loading } = useAuth();
     const { showToast } = useToast();
     const navigate = useNavigate();
 
     const validate = () => {
-        const newErrors: { email?: string; password?: string } = {};
+        const newErrors: { loginId?: string; password?: string } = {};
 
-        if (!email) {
-            newErrors.email = 'Email is required';
-        } else if (!/\S+@\S+\.\S+/.test(email)) {
-            newErrors.email = 'Email format is invalid';
+        if (!loginId) {
+            newErrors.loginId = 'Login ID or Email is required';
         }
 
         if (!password) {
             newErrors.password = 'Password is required';
-        } else if (password.length < 6) {
-            newErrors.password = 'Password must be at least 6 characters';
         }
 
         setErrors(newErrors);
@@ -42,11 +38,11 @@ export const SignIn: React.FC = () => {
         if (!validate()) return;
 
         try {
-            await login(email, password);
+            await login(loginId, password);
             showToast('success', 'Login successful! Welcome back.');
             navigate('/dashboard');
-        } catch (error) {
-            showToast('error', 'Login failed. Please check your credentials.');
+        } catch (error: any) {
+            showToast('error', error.message || 'Login failed. Please check your credentials.');
         }
     };
 
@@ -62,12 +58,12 @@ export const SignIn: React.FC = () => {
 
                 <form onSubmit={handleSubmit} className="auth-form">
                     <Input
-                        type="email"
+                        type="text"
                         label="Login ID / Email"
-                        placeholder="Enter your email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        error={errors.email}
+                        placeholder="Enter your Login ID or Email"
+                        value={loginId}
+                        onChange={(e) => setLoginId(e.target.value)}
+                        error={errors.loginId}
                         required
                     />
 
@@ -90,7 +86,7 @@ export const SignIn: React.FC = () => {
                             />
                             <span>Remember me</span>
                         </label>
-                        <a href="#" className="auth-link">Forgot Password?</a>
+                        <Link to="/forgot-password" className="auth-link">Forgot Password?</Link>
                     </div>
 
                     <Button type="submit" variant="primary" fullWidth loading={loading}>
@@ -99,7 +95,7 @@ export const SignIn: React.FC = () => {
                 </form>
 
                 <p className="auth-footer">
-                    Don't have an account? <Link to="/signup" className="auth-link">Sign Up</Link>
+                    Don't have an account? Contact your HR administrator
                 </p>
             </Card>
         </div>

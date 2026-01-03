@@ -1,26 +1,32 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { api } from '../services/api';
 
 interface User {
     id: string;
     name: string;
     email: string;
-    role: 'admin' | 'employee';
+    role: 'Admin' | 'Employee';
     employeeId: string;
     department?: string;
     position?: string;
 }
 
-interface StoredUser extends User {
-    password: string; // Only stored locally for demo purposes
-}
-
 interface AuthContextType {
     user: User | null;
     isAuthenticated: boolean;
-    login: (email: string, password: string) => Promise<void>;
-    register: (employeeId: string, email: string, password: string, role: 'admin' | 'employee') => Promise<void>;
+    login: (loginId: string, password: string) => Promise<void>;
+    register: (data: RegisterData) => Promise<{ loginId: string; password: string }>;
     logout: () => void;
     loading: boolean;
+}
+
+interface RegisterData {
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    companyName?: string;
+    avatar?: File;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,29 +39,6 @@ export const useAuth = () => {
     return context;
 };
 
-// Helper functions for localStorage
-const getStoredUsers = (): StoredUser[] => {
-    try {
-        const users = localStorage.getItem('registeredUsers');
-        return users ? JSON.parse(users) : [];
-    } catch (error) {
-        console.error('Error reading stored users:', error);
-        return [];
-    }
-};
-
-const saveUser = (user: StoredUser) => {
-    try {
-        const users = getStoredUsers();
-        users.push(user);
-        localStorage.setItem('registeredUsers', JSON.stringify(users));
-        console.log('User saved successfully:', user.email);
-    } catch (error) {
-        console.error('Error saving user:', error);
-        throw new Error('Failed to save user data');
-    }
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
@@ -63,43 +46,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         // Check for stored auth session
         const storedUser = localStorage.getItem('currentUser');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
+        const token = localStorage.getItem('authToken');
+        
+        if (storedUser && token) {
+            try {
+                setUser(JSON.parse(storedUser));
+            } catch (error) {
+                console.error('Error parsing stored user:', error);
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('authToken');
+            }
         }
         setLoading(false);
     }, []);
 
-    const login = async (email: string, password: string) => {
+    const login = async (loginId: string, password: string) => {
         setLoading(true);
         try {
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 800));
-
-            // Get all registered users
-            const registeredUsers = getStoredUsers();
-            console.log('Registered users:', registeredUsers.length);
-
-            // Find user with matching credentials
-            const foundUser = registeredUsers.find(
-                u => u.email === email && u.password === password
-            );
-
-            if (!foundUser) {
-                throw new Error('Invalid email or password');
-            }
-
-            // Create user session (without password)
+            const response = await api.login(loginId, password);
+            
             const userSession: User = {
-                id: foundUser.id,
-                name: foundUser.name,
-                email: foundUser.email,
-                role: foundUser.role,
-                employeeId: foundUser.employeeId,
+                id: response.user.id,
+                name: response.user.name,
+                email: response.user.email,
+                role: response.user.role as 'Admin' | 'Employee',
+                employeeId: response.employee?.employeeId || '',
+                department: response.employee?.department,
+                position: response.employee?.position,
             };
 
             setUser(userSession);
             localStorage.setItem('currentUser', JSON.stringify(userSession));
-            localStorage.setItem('authToken', 'token-' + Date.now());
+            localStorage.setItem('authToken', response.token);
         } catch (error) {
             console.error('Login error:', error);
             throw error;
@@ -108,44 +86,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    const register = async (
-        employeeId: string,
-        email: string,
-        password: string,
-        role: 'admin' | 'employee'
-    ) => {
+    const register = async (data: RegisterData): Promise<{ loginId: string; password: string }> => {
         setLoading(true);
         try {
-            console.log('Starting registration for:', email);
-
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // Check if email already exists
-            const existingUsers = getStoredUsers();
-            console.log('Checking against existing users:', existingUsers.length);
-
-            if (existingUsers.some(u => u.email === email)) {
-                console.log('Email already exists');
-                throw new Error('Email already registered');
-            }
-
-            // Create new user
-            const newUser: StoredUser = {
-                id: 'user-' + Date.now(),
-                name: email.split('@')[0], // Use email prefix as name
-                email,
-                password,
-                role,
-                employeeId,
+            const response = await api.register(data);
+            
+            return {
+                loginId: response.loginId,
+                password: response.generatedPassword,
             };
-
-            console.log('Saving new user:', email);
-
-            // Save to localStorage
-            saveUser(newUser);
-
-            console.log('Registration completed successfully for:', email);
         } catch (error) {
             console.error('Registration error:', error);
             throw error;

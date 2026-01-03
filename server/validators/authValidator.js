@@ -5,20 +5,18 @@ export const registerSchema = Joi.object({
     email: Joi.string().email().required().messages({
         'string.email': 'Invalid email format',
     }),
-    password: Joi.string()
-        .pattern(PASSWORD_REGEX)
-        .required()
-        .messages({
-            'string.pattern.base': 'Password must be at least 8 characters with uppercase, lowercase, number and special character',
-        }),
     firstName: Joi.string().required(),
     lastName: Joi.string().required(),
-    role: Joi.string().valid('Employee', 'Admin').optional(),
+    phone: Joi.string().required(),
+    companyName: Joi.string().optional(),
 });
 
 export const loginSchema = Joi.object({
-    email: Joi.string().email().required(),
+    email: Joi.string().optional(),
+    loginId: Joi.string().optional(),
     password: Joi.string().required(),
+}).or('email', 'loginId').messages({
+    'object.missing': 'Either Login ID or Email is required',
 });
 
 export const changePasswordSchema = Joi.object({

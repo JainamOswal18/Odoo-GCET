@@ -4,19 +4,22 @@ import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 import { ENV } from '../config/environment.js';
 import { ROLES, ERROR_MESSAGES, PASSWORD_REGEX } from '../config/constants.js';
-import { generateEmployeeId } from '../utils/idGenerator.js';
+import { generateEmployeeId, generateRandomPassword } from '../utils/idGenerator.js';
 import { hashPassword, comparePassword } from '../utils/passwordUtils.js';
-import { sendVerificationEmail } from '../utils/emailService.js';
+import { sendVerificationEmail, sendWelcomeEmailWithCredentials } from '../utils/emailService.js';
 
 export const register = async (req, res) => {
     try {
         const db = getDb();
-        const { email, password, firstName, lastName, role } = req.validatedData;
+        const { email, firstName, lastName, phone, companyName } = req.validatedData;
 
-        // Validate password strength
-        if (!PASSWORD_REGEX.test(password)) {
-            return res.status(400).json({ error: ERROR_MESSAGES.INVALID_PASSWORD });
+        // Only admin can register new users
+        if (req.user && req.user.role !== ROLES.ADMIN) {
+            return res.status(403).json({ error: ERROR_MESSAGES.FORBIDDEN });
         }
+
+        // Get avatar file path if uploaded
+        const profilePicture = req.file ? `/uploads/profiles/${req.file.filename}` : null;
 
         // Check if email exists
         const existingUser = await db.get('SELECT id FROM users WHERE email = ?', [email]);
@@ -25,47 +28,86 @@ export const register = async (req, res) => {
         }
 
         const userId = uuidv4();
-        const employeeId = generateEmployeeId();
-        const hashedPassword = await hashPassword(password);
         const now = new Date().toISOString();
+        const year = new Date().getFullYear();
 
-        // Create user
+        // Get maximum serial number for this year across ALL employees
+        // Query all employee IDs that contain the current year and extract max serial
+        const allEmployeesThisYear = await db.all(
+            `SELECT employeeId FROM employees WHERE employeeId LIKE ?`,
+            [`%${year}%`]
+        );
+
+        let serialNumber = 1;
+        if (allEmployeesThisYear && allEmployeesThisYear.length > 0) {
+            // Extract all serial numbers (last 4 digits) and find the maximum
+            const serialNumbers = allEmployeesThisYear
+                .map(emp => {
+                    const match = emp.employeeId.match(/\d{4}$/);
+                    return match ? parseInt(match[0]) : 0;
+                })
+                .filter(num => num > 0);
+
+            if (serialNumbers.length > 0) {
+                serialNumber = Math.max(...serialNumbers) + 1;
+            }
+        }
+
+        // Generate login ID in format: OI[FirstName2][LastName2][Year][Serial]
+        const loginId = generateEmployeeId(firstName, lastName, year, serialNumber);
+
+        // Auto-generate password
+        const generatedPassword = generateRandomPassword();
+        const hashedPassword = await hashPassword(generatedPassword);
+
+        // Create user (always as Employee, not Admin)
+        // Email is pre-verified since admin creates the account
         await db.run(
             `INSERT INTO users (id, email, password, role, isEmailVerified, isActive, createdAt, updatedAt)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [userId, email, hashedPassword, role || ROLES.EMPLOYEE, 0, 1, now, now]
+            [userId, email, hashedPassword, ROLES.EMPLOYEE, 1, 1, now, now]
         );
 
-        // Create employee record
+        // Create employee record with profile picture
         const employeeId_uuid = uuidv4();
         await db.run(
-            `INSERT INTO employees (id, userId, firstName, lastName, employeeId, email, dateOfJoining, employmentType, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [employeeId_uuid, userId, firstName, lastName, employeeId, email, now, 'Full-time', now, now]
+            `INSERT INTO employees (id, userId, firstName, lastName, employeeId, email, phone, profilePicture, dateOfJoining, employmentType, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [employeeId_uuid, userId, firstName, lastName, loginId, email, phone, profilePicture, now, 'Full-time', now, now]
         );
 
         // Create leave balance for current year
-        const year = new Date().getFullYear();
         await db.run(
             `INSERT INTO leaveBalances (id, employeeId, year, paidLeaveBalance, sickLeaveBalance, createdAt, updatedAt)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [uuidv4(), employeeId_uuid, year, 12, 6, now, now]
         );
 
-        // Send verification email
-        await sendVerificationEmail(email, firstName);
+        // Send welcome email with credentials to employee (optional - only if email is configured)
+        if (ENV.EMAIL_USER && ENV.EMAIL_PASSWORD) {
+            try {
+                await sendWelcomeEmailWithCredentials(email, firstName, loginId, generatedPassword);
+            } catch (error) {
+                // Don't fail registration if email fails
+                console.error('Failed to send welcome email:', error);
+            }
+        }
 
         // Log audit
+        const adminUserId = req.user ? req.user.id : userId;
         await db.run(
             `INSERT INTO auditLogs (id, userId, action, entityType, entityId, createdAt)
        VALUES (?, ?, ?, ?, ?, ?)`,
-            [uuidv4(), userId, 'USER_REGISTERED', 'User', userId, now]
+            [uuidv4(), adminUserId, 'USER_REGISTERED', 'User', userId, now]
         );
 
         res.status(201).json({
-            message: 'User registered successfully. Please verify your email.',
-            userId,
-            employeeId,
+            message: 'Employee registered successfully.',
+            loginId,
+            generatedPassword,
+            email,
+            firstName,
+            lastName,
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -75,9 +117,21 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
     try {
         const db = getDb();
-        const { email, password } = req.validatedData;
+        const { loginId, email, password } = req.validatedData;
 
-        const user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
+        // Use whichever field was provided
+        const identifier = loginId || email;
+
+        // Find user by email or login ID
+        let user = await db.get('SELECT * FROM users WHERE email = ?', [identifier]);
+
+        if (!user) {
+            // Try to find by employee login ID
+            const employee = await db.get('SELECT userId FROM employees WHERE employeeId = ?', [identifier]);
+            if (employee) {
+                user = await db.get('SELECT * FROM users WHERE id = ?', [employee.userId]);
+            }
+        }
 
         if (!user) {
             return res.status(401).json({ error: ERROR_MESSAGES.INVALID_CREDENTIALS });
@@ -121,6 +175,7 @@ export const login = async (req, res) => {
                 id: user.id,
                 email: user.email,
                 role: user.role,
+                name: employee ? `${employee.firstName} ${employee.lastName}` : '',
                 isEmailVerified: user.isEmailVerified,
             },
             employee: employee ? {
@@ -128,6 +183,8 @@ export const login = async (req, res) => {
                 firstName: employee.firstName,
                 lastName: employee.lastName,
                 employeeId: employee.employeeId,
+                department: employee.department,
+                position: employee.designation,
             } : null,
         });
     } catch (error) {

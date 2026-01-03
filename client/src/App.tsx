@@ -4,6 +4,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { SignIn } from './pages/SignIn';
 import { SignUp } from './pages/SignUp';
+import { ForgotPassword } from './pages/ForgotPassword';
+import { ResetPassword } from './pages/ResetPassword';
 import { Dashboard } from './pages/Dashboard';
 import { Profile } from './pages/Profile';
 import { Attendance } from './pages/Attendance';
@@ -56,8 +58,20 @@ const AppRoutes: React.FC = () => {
                 element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <SignIn />}
             />
             <Route
+                path="/forgot-password"
+                element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <ForgotPassword />}
+            />
+            <Route
+                path="/reset-password"
+                element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <ResetPassword />}
+            />
+            <Route
                 path="/signup"
-                element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <SignUp />}
+                element={
+                    <ProtectedRoute>
+                        <SignUp />
+                    </ProtectedRoute>
+                }
             />
 
             {/* Protected Routes - Common */}
