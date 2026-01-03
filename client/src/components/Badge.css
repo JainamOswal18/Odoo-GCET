@@ -1,0 +1,78 @@
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    border-radius: 12px;
+    white-space: nowrap;
+}
+
+.badge-pending {
+    background-color: var(--warning-yellow);
+    color: var(--text-dark);
+}
+
+.badge-approved {
+    background-color: var(--success-green);
+    color: var(--text-white);
+}
+
+.badge-rejected {
+    background-color: var(--error-red);
+    color: var(--text-white);
+}
+
+.badge-present {
+    background-color: var(--success-green);
+    color: var(--text-white);
+}
+
+.badge-absent {
+    background-color: var(--error-red);
+    color: var(--text-white);
+}
+
+.badge-on-leave {
+    background-color: var(--warning-yellow);
+    color: var(--text-dark);
+}
+
+.badge-processing {
+    background-color: var(--info-blue);
+    color: var(--text-white);
+}
+
+.badge-on-time {
+    background-color: var(--success-green);
+    color: var(--text-white);
+}
+
+.badge-late {
+    background-color: var(--tertiary-orange);
+    color: var(--text-white);
+}
+
+/* Status Dots */
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: var(--radius-full);
+    display: inline-block;
+}
+
+.status-dot-present {
+    background-color: var(--success-green);
+}
+
+.status-dot-absent {
+    background-color: var(--error-red);
+}
+
+.status-dot-leave {
+    background-color: var(--warning-yellow);
+}
+
+.status-dot-future {
+    background-color: var(--neutral-gray-dark);
+}
